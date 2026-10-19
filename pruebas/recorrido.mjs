@@ -101,10 +101,10 @@ if (!EN_VIVO) {
     await t.locator("#nav").getByRole("button", { name: "Recetas" }).click();
     await t.getByText("Curry de garbanzos").waitFor();
     await captura(t, "tablet-recetas");
-    await t.getByRole("button", { name: "Especiales" }).click();
+    await t.locator(".chips-scroll").getByRole("button", { name: "Especiales" }).click();
     await t.getByText("Canelones de Navidad").waitFor();
     await t.getByText("Fideos a la cazuela").waitFor({ state: "detached" }).catch(() => {});
-    await t.getByRole("button", { name: "Todas" }).click();
+    await t.locator(".chips-scroll").getByRole("button", { name: "Todas" }).click();
     await t.locator(".receta-tarjeta", { hasText: "Fideos a la cazuela" }).click();
     await t.getByText("Dora la costilla").waitFor();
     await captura(t, "tablet-receta");

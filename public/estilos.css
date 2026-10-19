@@ -218,7 +218,12 @@ a { color: var(--primario); }
 }
 .cabecera .fecha { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--destacado); }
 .cabecera h1 { font-family: var(--fuente-titulo); font-weight: var(--peso-titulo); font-size: calc(30px * var(--escala-titulo)); }
-.cabecera-acciones { display: flex; gap: 8px; align-items: center; }
+.cabecera-acciones { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+@media (max-width: 600px) {
+  .cabecera h1 { font-size: calc(26px * var(--escala-titulo)); }
+  .chip-cocinero { padding: 4px 12px 4px 4px; min-height: 44px; font-size: 14px; }
+  .chip-cocinero .prefijo { display: none; }
+}
 
 @media (min-width: 900px) {
   .app { display: grid; grid-template-columns: 104px minmax(0, 1fr); }

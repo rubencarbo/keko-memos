@@ -370,7 +370,7 @@ function render() {
       <h1>${esc(titulos[S.vista] || "")}</h1>
     </div>
     <div class="cabecera-acciones">
-      ${S.vista === "hoy" && cocina ? `<button class="chip-cocinero" data-accion="cambiar-cocinera" ${esAdulto() ? "" : "disabled"} aria-label="Hoy cocina ${esc(cocina.nombre)}">${avatar(cocina, 38)}<span>Hoy cocina ${esc(cocina.nombre)}</span></button>` : ""}
+      ${S.vista === "hoy" && cocina ? `<button class="chip-cocinero" data-accion="cambiar-cocinera" ${esAdulto() ? "" : "disabled"} aria-label="Hoy cocina ${esc(cocina.nombre)}">${avatar(cocina, 38)}<span><span class="prefijo">Hoy cocina </span>${esc(cocina.nombre)}</span></button>` : ""}
       <button class="btn btn-icono" data-accion="bandeja" aria-label="Avisos">${icono("campana")}${sinLeer ? `<span class="contador">${sinLeer}</span>` : ""}</button>
     </div>`;
   const vistas = { hoy: vistaHoy, semana: vistaSemana, recetas: vistaRecetas, receta: vistaReceta, editor: vistaEditor, compra: vistaCompra, yo: vistaYo };
