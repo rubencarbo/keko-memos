@@ -58,7 +58,7 @@ if (!EN_VIVO) {
     await f.locator('input[name="nombre"]').fill("Rubén");
     await f.locator('input[name="nacimiento"]').fill("1980-06-01");
     await f.getByRole("button", { name: "Unirme" }).click();
-    await t.locator("#nav").getByRole("button", { name: "Semana" }).waitFor({ timeout: 20000 });
+    await t.locator("#nav").getByRole("button", { name: "Menús" }).waitFor({ timeout: 20000 });
   });
 
   await paso("Modo tablet activado", async () => {
@@ -116,7 +116,7 @@ if (!EN_VIVO) {
   });
 
   await paso("Semana: se ve la planificación", async () => {
-    await t.locator("#nav").getByRole("button", { name: "Semana" }).click();
+    await t.locator("#nav").getByRole("button", { name: "Menús" }).click();
     await t.getByText("Lentejas estofadas").first().waitFor();
     await captura(t, "tablet-semana");
   });
@@ -126,6 +126,31 @@ if (!EN_VIVO) {
     await t.getByRole("button", { name: "Mover o intercambiar con otro día" }).click();
     await t.locator(".hueco", { hasText: "Tortilla de patatas" }).click();
     await t.getByText("Intercambiados").waitFor();
+  });
+
+  await paso("Menús: vista mensual", async () => {
+    await t.locator(".chips").getByRole("button", { name: "Mes" }).click();
+    await t.locator(".mes .mes-dia").first().waitFor();
+    await captura(t, "tablet-mes");
+    await t.locator(".mes-dia.es-hoy").click();
+    await t.locator("#modal .hueco").first().waitFor();
+    await captura(t, "tablet-mes-dia");
+    await t.getByRole("button", { name: "Cerrar" }).click();
+    await t.locator(".chips").getByRole("button", { name: "Semana" }).click();
+  });
+
+  await paso("Menús: crear una receta nueva directamente en un día vacío", async () => {
+    await t.locator(".hueco.vacio-hueco").first().click();
+    await t.getByRole("button", { name: /Crear con KeKoMeMos/ }).waitFor();
+    await captura(t, "tablet-que-ponemos");
+    await t.getByRole("button", { name: "+ Escribir receta nueva" }).click();
+    await t.getByText("Al guardar se añadirá al menú").waitFor();
+    await t.locator('input[name="titulo"]').fill("Gazpacho");
+    await t.locator('textarea[name="ingredientes"]').fill("1 kg tomate\n1 pepino\n1 diente ajo");
+    await t.locator('textarea[name="pasos"]').fill("Tritura todo.\nEnfría en la nevera.");
+    await t.getByRole("button", { name: "Guardar receta" }).click();
+    await t.getByText("añadida al menú").waitFor();
+    await t.locator(".hueco", { hasText: "Gazpacho" }).waitFor();
   });
 
   await paso("Recetas: lista, filtro y detalle", async () => {
@@ -206,7 +231,7 @@ if (!EN_VIVO) {
   });
 
   await paso("Móvil menor: el menú está oculto hasta resolver el reto", async () => {
-    if (await m.locator("#nav").getByRole("button", { name: "Semana" }).count()) throw new Error("el menor ve la pestaña Semana");
+    if (await m.locator("#nav").getByRole("button", { name: "Menús" }).count()) throw new Error("el menor ve la pestaña Semana");
     await m.getByRole("button", { name: /Pregunta a KeKoMeMos/ }).first().waitFor();
     await captura(m, "movil-menor-hoy");
     await m.getByRole("button", { name: /Pregunta a KeKoMeMos/ }).first().click();
@@ -247,7 +272,7 @@ if (!EN_VIVO) {
     await f.getByRole("button", { name: "Unirme" }).click();
     await a.getByText("Fideos a la cazuela").first().waitFor({ timeout: 20000 });
     await captura(a, "movil-adulto-hoy");
-    await a.locator("#nav").getByRole("button", { name: "Semana" }).click();
+    await a.locator("#nav").getByRole("button", { name: "Menús" }).click();
     await a.getByText("Lentejas estofadas").first().waitFor();
     await captura(a, "movil-adulto-semana");
     await a.locator("#nav").getByRole("button", { name: "Recetas" }).click();

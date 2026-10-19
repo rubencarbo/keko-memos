@@ -76,7 +76,7 @@ IA.iniciarIA(app);
 const S = {
   user: null, hogarId: null, hogar: null, yo: null,
   miembros: [], recetas: [], menus: {}, despensa: [], avisos: [], tareasHoy: [],
-  vista: "hoy", param: null, semana: 0, filtro: "todas", busqueda: "",
+  vista: "hoy", param: null, semana: 0, mesOffset: 0, modoCal: "semana", asignarA: null, filtro: "todas", busqueda: "",
   intercambio: null, borrador: null, editorFoto: null,
   inicio: Date.now(), vistos: new Set(), cargado: new Set(), pendiente: false,
   desuscribir: []
@@ -305,7 +305,7 @@ function conectarHogar(hid) {
       listo("miembros");
     }, err),
     onSnapshot(query(col$("recetas"), orderBy("titulo")), (qs) => { S.recetas = qs.docs.map((d) => ({ id: d.id, ...d.data() })); listo("recetas"); }, err),
-    onSnapshot(query(col$("menus"), where("fecha", ">=", iso(masDias(new Date(), -21)))), (qs) => {
+    onSnapshot(query(col$("menus"), where("fecha", ">=", iso(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)))), (qs) => {
       S.menus = {};
       qs.docs.forEach((d) => { S.menus[d.id] = d.data(); });
       listo("menus");
@@ -382,7 +382,7 @@ document.addEventListener("focusout", () => setTimeout(() => {
 // RENDER
 // =========================================================
 function navItems() {
-  const items = [["hoy", "Hoy"], ["semana", "Semana"], ["recetas", "Recetas"], ["compra", "Compra"], ["yo", "Yo"]];
+  const items = [["hoy", "Hoy"], ["semana", "Menús"], ["recetas", "Recetas"], ["compra", "Compra"], ["yo", "Yo"]];
   return esMenor() ? items.filter(([v]) => v !== "semana") : items;
 }
 function render() {
@@ -391,7 +391,7 @@ function render() {
     `${i === 4 ? '<span class="nav-hueco"></span>' : ""}<button data-accion="ir" data-vista="${v}" ${vistaBase === v ? 'aria-current="page"' : ""}>${icono(v)}${t}</button>`
   ).join("");
   const sinLeer = S.avisos.filter((a) => a.de !== S.user.uid && (a.para === "todos" || a.para === S.user.uid) && (a.creadoMs || 0) > Number(localStorage.getItem("avisosLeidos") || 0)).length;
-  const titulos = { hoy: S.hogar?.nombre || "Hoy en casa", semana: "Menús de la semana", recetas: "Recetas", receta: "Receta", editor: S.param ? "Editar receta" : "Nueva receta", compra: "Lista de la compra", yo: "Mi perfil" };
+  const titulos = { hoy: S.hogar?.nombre || "Hoy en casa", semana: "Planificador de menús", recetas: "Recetas", receta: "Receta", editor: S.param ? "Editar receta" : "Nueva receta", compra: "Lista de la compra", yo: "Mi perfil" };
   const cocina = miembro(cocineraHoy());
   $("#cabecera").innerHTML = `
     <div>
@@ -514,7 +514,21 @@ function botonCocinarAhora() {
 }
 
 // ---------- SEMANA ----------
+function selectorCalendario() {
+  return `<div class="chips">
+    <button class="chip" data-accion="modo-cal" data-modo="semana" aria-pressed="${S.modoCal === "semana"}">Semana</button>
+    <button class="chip" data-accion="modo-cal" data-modo="mes" aria-pressed="${S.modoCal === "mes"}">Mes</button>
+  </div>`;
+}
+function accionesPlan() {
+  return esAdulto() ? `<div class="fila">
+      <button class="btn btn-primario crece" data-accion="sugerir-semana">${icono("chispa")}Rellenar huecos con KeKoMeMos</button>
+      <button class="btn crece" data-accion="nueva-receta-plan">+ Nueva receta</button>
+      <button class="btn crece" data-accion="compra-semana">${icono("compra")}Lista de la compra</button>
+    </div>` : "";
+}
 function vistaSemana() {
+  if (S.modoCal === "mes") return vistaMes();
   const lunes = masDias(lunesDe(new Date()), S.semana * 7);
   const dias = Array.from({ length: 7 }, (_, i) => masDias(lunes, i));
   const hueco = (f, tipo) => {
@@ -526,14 +540,13 @@ function vistaSemana() {
   return `<div class="pila">
     ${S.intercambio ? `<div class="banner"><span>Toca el otro hueco para intercambiarlos</span><button class="btn" data-accion="cancelar-intercambio">Cancelar</button></div>` : ""}
     <div class="fila">
+      ${selectorCalendario()}
+      <span class="crece"></span>
       <button class="btn" data-accion="semana" data-delta="-1" aria-label="Semana anterior">‹</button>
-      <strong class="crece" style="text-align:center">Semana del ${esc(lunes.toLocaleDateString("es-ES", { day: "numeric", month: "long" }))}</strong>
+      <strong style="text-align:center">Semana del ${esc(lunes.toLocaleDateString("es-ES", { day: "numeric", month: "long" }))}</strong>
       <button class="btn" data-accion="semana" data-delta="1" aria-label="Semana siguiente">›</button>
     </div>
-    ${esAdulto() ? `<div class="fila">
-      <button class="btn btn-primario crece" data-accion="sugerir-semana">${icono("chispa")}Rellenar huecos con Gemini</button>
-      <button class="btn crece" data-accion="compra-semana">${icono("compra")}Lista de la compra</button>
-    </div>` : ""}
+    ${accionesPlan()}
     <div class="semana">
       ${dias.map((d) => {
         const f = iso(d);
@@ -543,6 +556,38 @@ function vistaSemana() {
         </div>`;
       }).join("")}
     </div>
+  </div>`;
+}
+function vistaMes() {
+  const base = new Date();
+  const primero = new Date(base.getFullYear(), base.getMonth() + S.mesOffset, 1);
+  const inicio = lunesDe(primero);
+  const celdas = Array.from({ length: 42 }, (_, i) => masDias(inicio, i));
+  const filas = celdas[35].getMonth() === primero.getMonth() ? 6 : (celdas[28].getMonth() === primero.getMonth() ? 5 : 4);
+  const titulo = primero.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  return `<div class="pila">
+    ${S.intercambio ? `<div class="banner"><span>Toca el otro día para intercambiar</span><button class="btn" data-accion="cancelar-intercambio">Cancelar</button></div>` : ""}
+    <div class="fila">
+      ${selectorCalendario()}
+      <span class="crece"></span>
+      <button class="btn" data-accion="mes" data-delta="-1" aria-label="Mes anterior">‹</button>
+      <strong style="text-align:center;text-transform:capitalize">${esc(titulo)}</strong>
+      <button class="btn" data-accion="mes" data-delta="1" aria-label="Mes siguiente">›</button>
+    </div>
+    ${accionesPlan()}
+    <div class="mes">
+      ${["lun", "mar", "mié", "jue", "vie", "sáb", "dom"].map((d) => `<div class="mes-cabecera">${d}</div>`).join("")}
+      ${celdas.slice(0, filas * 7).map((d) => {
+        const f = iso(d), c = S.menus[`${f}_comida`], x = S.menus[`${f}_cena`];
+        const fuera = d.getMonth() !== primero.getMonth();
+        return `<button class="mes-dia ${fuera ? "fuera" : ""} ${f === hoy() ? "es-hoy" : ""}" data-accion="dia" data-fecha="${f}" aria-label="${esc(fechaLarga(d))}">
+          <b>${d.getDate()}</b>
+          <span class="${c ? "" : "vacio-mes"}">${esc(c?.titulo || "·")}</span>
+          <span class="${x ? "" : "vacio-mes"}">${esc(x?.titulo || "·")}</span>
+        </button>`;
+      }).join("")}
+    </div>
+    <p class="suave" style="margin:0;font-size:14px">En cada día: arriba la comida, abajo la cena. Toca un día para organizarlo.</p>
   </div>`;
 }
 
@@ -619,7 +664,9 @@ function leerIngredientes(texto) {
 function vistaEditor() {
   const r = S.borrador || receta(S.param) || { categoria: "favoritos" };
   const foto = S.editorFoto?.url || r.foto;
+  const destino = S.asignarA ? (() => { const [f, t] = S.asignarA.split("_"); return `<div class="banner"><span>Al guardar se añadirá al menú: ${esc(fechaLarga(deIso(f)))} · ${t}</span></div>`; })() : "";
   return `<form class="pila" data-form="guardar-receta" style="max-width:900px">
+    ${destino}
     <div class="fila"><button type="button" class="btn" data-accion="${S.param ? "ver-receta" : "ir"}" data-id="${esc(S.param || "")}" data-vista="recetas">‹ Volver</button></div>
     <div class="receta-detalle">
       <div class="pila">
@@ -846,7 +893,7 @@ async function activarNotificaciones() {
 }
 
 // ---------- MODALES ----------
-function modalElegirReceta(titulo, alElegir) {
+function modalElegirReceta(titulo, alElegir, huecoId = null) {
   const pintar = (filtro = "") => {
     const b = normal(filtro);
     const grupos = Object.entries(CATEGORIAS).map(([id, t]) => {
@@ -855,7 +902,15 @@ function modalElegirReceta(titulo, alElegir) {
     }).join("");
     $("#lista-elegir").innerHTML = grupos || `<p class="vacio">No hay recetas${b ? " con ese nombre" : ""}.</p>`;
   };
+  let sub = "";
+  if (huecoId) { const [f, t] = huecoId.split("_"); sub = `<p class="suave" style="margin:0">${esc(fechaLarga(deIso(f)))} · ${t}</p>`; }
   abrirModal(`${cabeceraModal(titulo)}
+    ${sub}
+    ${huecoId ? `<div class="fila">
+      <button class="btn btn-primario crece" data-accion="pedir-receta" data-hueco="${huecoId}">${icono("chispa")}Crear con KeKoMeMos</button>
+      <button class="btn crece" data-accion="nueva-receta" data-hueco="${huecoId}">+ Escribir receta nueva</button>
+    </div>
+    <h3 class="h2" style="margin-top:4px">…o elegir una receta existente</h3>` : ""}
     <input class="entrada-texto" id="filtro-elegir" placeholder="Buscar receta" autocomplete="off">
     <div id="lista-elegir" class="pila"></div>`);
   pintar();
@@ -960,7 +1015,7 @@ const ACCIONES = {
     }
   },
   salir: async () => { if (confirmar("¿Cerrar sesión en este dispositivo?")) { await signOut(auth); location.reload(); } },
-  ir: (d) => { S.vista = d.vista; S.param = null; S.borrador = null; S.editorFoto = null; render(); window.scrollTo(0, 0); },
+  ir: (d) => { S.vista = d.vista; S.param = null; S.borrador = null; S.editorFoto = null; S.asignarA = null; render(); window.scrollTo(0, 0); },
   "cerrar-modal": cerrarModal,
   "cerrar-aviso": (_, el) => el.closest(".aviso")?.remove(),
   responder: (d, el) => { el.closest(".aviso")?.remove(); cerrarModal(); responderAviso(d.id, d.valor); },
@@ -1013,7 +1068,7 @@ const ACCIONES = {
   reto: () => modalReto(S.yo),
   "reto-tablet": elegirPeque,
   "ver-receta": (d) => { if (!d.id) return ACCIONES.ir({ vista: "recetas" }); S.vista = "receta"; S.param = d.id; render(); window.scrollTo(0, 0); },
-  "nueva-receta": () => { S.vista = "editor"; S.param = null; S.borrador = null; S.editorFoto = null; render(); },
+  "nueva-receta": (d) => { cerrarModal(); S.asignarA = d.hueco || null; S.vista = "editor"; S.param = null; S.borrador = null; S.editorFoto = null; render(); window.scrollTo(0, 0); },
   "editar-receta": (d) => { S.vista = "editor"; S.param = d.id; S.borrador = null; S.editorFoto = null; render(); },
   "borrar-receta": async (d) => {
     if (!confirmar("¿Eliminar esta receta?")) return;
@@ -1035,7 +1090,28 @@ const ACCIONES = {
         <button class="btn btn-primario btn-grande">Guardar</button>
       </form>`);
   },
-  "elegir-hueco": (d) => modalElegirReceta("Elegir plato", (r) => asignarMenu(d.hueco, r)),
+  "elegir-hueco": (d) => modalElegirReceta("Elegir plato", (r) => asignarMenu(d.hueco, r), d.hueco),
+  "modo-cal": (d) => { S.modoCal = d.modo; S.intercambio = null; render(); },
+  mes: (d) => { S.mesOffset += Number(d.delta); render(); },
+  "nueva-receta-plan": () => abrirModal(`${cabeceraModal("Nueva receta")}
+    <div class="pila">
+      <button class="btn btn-primario btn-grande" data-accion="pedir-receta">${icono("chispa")}Crear con KeKoMeMos</button>
+      <button class="btn btn-grande" data-accion="importar">Importar de un texto o una foto</button>
+      <button class="btn btn-grande" data-accion="nueva-receta">+ Escribirla yo</button>
+      <p class="suave" style="margin:0">Para ponerla directamente en un día, toca ese día en el calendario.</p>
+    </div>`),
+  dia: (d) => {
+    const f = d.fecha;
+    if (S.intercambio) {
+      const tipo = S.intercambio.split("_")[1];
+      return ACCIONES.hueco({ hueco: `${f}_${tipo}` });
+    }
+    const fila = (tipo) => {
+      const m = S.menus[`${f}_${tipo}`];
+      return `<button class="hueco ${m ? "" : "vacio-hueco"}" data-accion="hueco" data-hueco="${f}_${tipo}"><small>${tipo}</small><span>${esc(m?.titulo || (esAdulto() ? "+ Añadir" : "—"))}</span></button>`;
+    };
+    abrirModal(`${cabeceraModal(fechaLarga(deIso(f)))}<div class="pila">${fila("comida")}${fila("cena")}</div>`);
+  },
   sorpresa: async (d) => {
     const pool = S.recetas.filter((r) => r.categoria === "quiero_probar" || r.categoria === "especiales");
     const lista = pool.length ? pool : S.recetas;
@@ -1063,7 +1139,7 @@ const ACCIONES = {
       return notificar("Intercambiados");
     }
     if (!esAdulto()) { if (m?.recetaId) ACCIONES["ver-receta"]({ id: m.recetaId }); return; }
-    if (!m) return modalElegirReceta("Elegir plato", (r) => asignarMenu(id, r));
+    if (!m) return modalElegirReceta("¿Qué ponemos?", (r) => asignarMenu(id, r), id);
     const [fecha, tipo] = id.split("_");
     abrirModal(`${cabeceraModal(m.titulo)}
       <p class="suave">${esc(fechaLarga(deIso(fecha)))} · ${tipo}</p>
@@ -1110,7 +1186,7 @@ const ACCIONES = {
     } catch (e) { console.error(e); notificar("No se pudo calcular la lista ahora."); }
     render();
   },
-  "pedir-receta": () => abrirModal(`${cabeceraModal("Pedir receta a KeKoMeMos")}
+  "pedir-receta": (d) => { S.asignarA = d.hueco || null; abrirModal(`${cabeceraModal("Pedir receta a KeKoMeMos")}
     <form class="pila" data-form="pedir-receta">
       <label class="campo">¿Qué te apetece cocinar?
         <textarea name="pedido" rows="3" required placeholder="Fideos a la cazuela como los de la abuela, para 5…"></textarea></label>
@@ -1118,7 +1194,7 @@ const ACCIONES = {
       <label class="campo">Categoría <select name="categoria">${Object.entries(CATEGORIAS).map(([id, t]) => `<option value="${id}" ${id === "quiero_probar" ? "selected" : ""}>${t}</option>`).join("")}</select></label>
       <button class="btn btn-primario btn-grande">${icono("chispa")}Crear receta con foto</button>
       <small class="suave">KeKoMeMos (Gemini) escribe la receta y crea una foto del plato. Podrás revisarla antes de guardar.</small>
-    </form>`),
+    </form>`); },
   "foto-receta": (d) => fotoParaReceta(d.id),
   "fotos-pendientes": async () => {
     const n = S.recetas.filter((r) => !r.foto).length;
@@ -1133,12 +1209,12 @@ const ACCIONES = {
     catch (e) { console.error(e); notificar("Gemini falla: " + (e.code || "") + " " + String(e.message).slice(0, 160)); }
     el.disabled = false; el.textContent = "Probar conexión con Gemini";
   },
-  importar: () => abrirModal(`${cabeceraModal("Importar receta")}
+  importar: (d) => { S.asignarA = d.hueco || null; abrirModal(`${cabeceraModal("Importar receta")}
     <form class="pila" data-form="importar">
       <label class="campo">Pega el texto de la receta <textarea name="texto" rows="6" placeholder="Copia la receta de una web, un mensaje…"></textarea></label>
       <label class="campo">…o haz una foto (libro, revista, pantalla) <input type="file" name="foto" accept="image/*"></label>
       <button class="btn btn-primario btn-grande">${icono("chispa")}Convertir con Gemini</button>
-    </form>`),
+    </form>`); },
   "generar-foto": async (_, el) => {
     const f = el.closest("form");
     const titulo = f.titulo.value.trim();
@@ -1285,9 +1361,16 @@ const FORMS = {
       await setDoc(ref$("recetas", id), datos, { merge: true });
       const sinFoto = !datos.foto && !receta(id)?.foto;
       S.borrador = null; S.editorFoto = null;
-      S.vista = "receta"; S.param = id;
+      if (S.asignarA) {
+        await asignarMenu(S.asignarA, { id, titulo: datos.titulo });
+        S.asignarA = null;
+        S.vista = "semana"; S.param = null;
+        notificar("Receta guardada y añadida al menú");
+      } else {
+        S.vista = "receta"; S.param = id;
+        notificar("Receta guardada");
+      }
       render();
-      notificar("Receta guardada");
       if (sinFoto) fotoParaReceta(id);
     } catch (e) {
       console.error(e);

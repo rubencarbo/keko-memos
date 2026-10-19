@@ -488,3 +488,23 @@ a { color: var(--primario); }
 .pregunta-keko svg { width: 40px; height: 40px; flex-shrink: 0; }
 .pregunta-keko span { display: flex; flex-direction: column; gap: 2px; }
 .pregunta-keko small { font-size: 15px; font-weight: 600; opacity: .85; }
+
+/* Calendario mensual */
+.mes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.mes-cabecera { text-align: center; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--suave); padding: 4px 0; }
+.mes-dia {
+  min-height: 96px; padding: 6px; text-align: left; border-radius: var(--radio-boton);
+  border: max(1px, var(--grosor)) solid var(--borde); background: var(--tarjeta);
+  display: flex; flex-direction: column; gap: 3px; overflow: hidden; min-width: 0;
+}
+.mes-dia b { font-size: 15px; }
+.mes-dia span { font-size: 12px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.mes-dia span + span { color: var(--suave); }
+.mes-dia .vacio-mes { color: var(--borde); font-weight: 400; }
+.mes-dia.fuera { opacity: .45; }
+.mes-dia.es-hoy { border-color: var(--acento); outline: 2px solid var(--acento); }
+@media (max-width: 600px) {
+  .mes { gap: 3px; }
+  .mes-dia { min-height: 64px; padding: 4px; }
+  .mes-dia span { font-size: 10px; }
+}
