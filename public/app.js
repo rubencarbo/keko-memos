@@ -141,13 +141,22 @@ const ICONOS = {
 const icono = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[n]}</svg>`;
 
 // ---------- MENSAJES, MODAL ----------
+// Traduce los errores de Gemini a algo comprensible
+function errorIA(e, que = "KeKoMeMos no ha podido responder") {
+  const t = String(e?.message || e || "");
+  if (/prepayment|credits are depleted|402|billing/i.test(t)) return `${que}: no queda saldo de Gemini. El administrador debe recargar créditos en AI Studio (aistudio.google.com › Billing).`;
+  if (/429|quota|rate/i.test(t)) return `${que}: demasiadas peticiones seguidas. Prueba en un minuto.`;
+  if (/app.?check|attestation|403/i.test(t)) return `${que}: la protección App Check ha rechazado la petición. Recarga la app.`;
+  if (!navigator.onLine) return `${que}: no hay conexión a internet.`;
+  return `${que}. (${(e?.code || "") + " " + t.slice(0, 120)})`;
+}
 function notificar(texto) {
   const d = document.createElement("div");
   d.className = "aviso";
   d.setAttribute("role", "status");
   d.textContent = texto;
   $("#avisos-flotantes").appendChild(d);
-  setTimeout(() => d.remove(), 3200);
+  setTimeout(() => d.remove(), texto.length > 80 ? 9000 : 3200);
 }
 function abrirModal(html, ancho = false) {
   const m = $("#modal");
@@ -336,7 +345,7 @@ async function rellenarFotos(max = 3) {
   fotosEnCurso = true;
   try {
     const pendientes = S.recetas.filter((r) => !r.foto && (Date.now() - (r.fotoIntento || 0)) > 86400000).slice(0, max);
-    for (const r of pendientes) await fotoParaReceta(r.id, false);
+    for (const r of pendientes) { if (await fotoParaReceta(r.id, false) === "sin-saldo") break; }
   } finally { fotosEnCurso = false; }
 }
 async function fotoParaReceta(id, avisar = true) {
@@ -353,7 +362,8 @@ async function fotoParaReceta(id, avisar = true) {
     if (avisar) notificar("Foto lista");
   } catch (e) {
     console.error("Foto con Gemini:", e);
-    if (avisar) notificar("Gemini no ha podido crear la foto: " + (e.code || e.message));
+    if (/prepayment|credits|402/i.test(String(e?.message))) { if (avisar) notificar(errorIA(e, "No se ha podido crear la foto")); return "sin-saldo"; }
+    if (avisar) notificar(errorIA(e, "No se ha podido crear la foto"));
   }
 }
 
@@ -1170,7 +1180,7 @@ const ACCIONES = {
       asign.forEach((a) => { const r = receta(a.recetaId); const [fecha, tipo] = a.hueco.split("_"); lote.set(ref$("menus", a.hueco), { fecha, tipo, recetaId: r.id, titulo: r.titulo }); });
       await lote.commit();
       notificar(`${asign.length} huecos rellenados`);
-    } catch (e) { console.error(e); notificar("Gemini no ha podido sugerir ahora."); render(); }
+    } catch (e) { console.error(e); notificar(errorIA(e, "No se han podido rellenar los huecos")); render(); }
   },
   "compra-semana": async (_, el) => {
     const desde = S.vista === "semana" ? masDias(lunesDe(new Date()), S.semana * 7) : new Date();
@@ -1184,7 +1194,7 @@ const ACCIONES = {
       const n = await anadirFaltan(faltan);
       notificar(`${n} productos añadidos a la lista`);
       if (S.vista !== "compra") ACCIONES.ir({ vista: "compra" });
-    } catch (e) { console.error(e); notificar("No se pudo calcular la lista ahora."); }
+    } catch (e) { console.error(e); notificar(errorIA(e, "No se ha podido calcular la lista")); }
     render();
   },
   "pedir-receta": (d) => { S.asignarA = d.hueco || null; abrirModal(`${cabeceraModal("Pedir receta a KeKoMeMos")}
@@ -1207,7 +1217,7 @@ const ACCIONES = {
   "probar-ia": async (_, el) => {
     el.disabled = true; el.textContent = "Probando…";
     try { notificar("Gemini responde: " + await IA.probarGemini()); }
-    catch (e) { console.error(e); notificar("Gemini falla: " + (e.code || "") + " " + String(e.message).slice(0, 160)); }
+    catch (e) { console.error(e); notificar(errorIA(e, "Gemini no responde")); }
     el.disabled = false; el.textContent = "Probar conexión con Gemini";
   },
   importar: (d) => { S.asignarA = d.hueco || null; abrirModal(`${cabeceraModal("Importar receta")}
@@ -1225,7 +1235,7 @@ const ACCIONES = {
       const blob = await comprimir(await IA.generarFotoPlato(titulo, leerIngredientes(f.ingredientes.value)));
       S.editorFoto = { blob, url: URL.createObjectURL(blob), generada: true };
       $("#editor-foto").innerHTML = `<img src="${S.editorFoto.url}" alt="">`;
-    } catch (e) { console.error(e); notificar("No se pudo generar la foto."); }
+    } catch (e) { console.error(e); notificar(errorIA(e, "No se ha podido crear la foto")); }
     el.disabled = false; el.innerHTML = `${icono("chispa")}Generar con Gemini`;
   },
   marcar: async (d) => {
@@ -1317,7 +1327,7 @@ const FORMS = {
       } catch (e) { console.error(e); notificar("La foto no ha salido; se intentará al guardar."); }
     } catch (e) {
       console.error(e);
-      notificar("Gemini no ha podido crear la receta: " + (e.code || e.message));
+      notificar(errorIA(e, "No se ha podido crear la receta"));
       boton.disabled = false; boton.innerHTML = `${icono("chispa")}Crear receta con foto`;
     }
   },
@@ -1336,7 +1346,7 @@ const FORMS = {
       notificar("Revisa la receta y guárdala");
     } catch (e) {
       console.error(e);
-      notificar("No se pudo leer la receta.");
+      notificar(errorIA(e, "No se ha podido leer la receta"));
       boton.disabled = false; boton.textContent = "Convertir con Gemini";
     }
   },
