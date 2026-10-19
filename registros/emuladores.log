@@ -1,0 +1,141 @@
+[33m[1m⚠  emulators:[22m[39m You are not currently authenticated so some features may not work correctly. Please run [1mfirebase login[22m to authenticate the CLI.
+[36m[1mi  emulators:[22m[39m Starting emulators: auth, firestore, hosting, storage
+[33m[1m⚠ [22m[39m It appears you are running in a CI environment. You can avoid downloading the Firestore Emulator repeatedly by caching the /home/runner/.cache/firebase/emulators directory.
+[36m[1mi  firestore:[22m[39m downloading cloud-firestore-emulator-v1.22.0.jar...
+
+[36m[1mi  firestore:[22m[39m Firestore Emulator logging to [1mfirestore-debug.log[22m
+[32m[1m✔  firestore:[22m[39m Firestore Emulator was started in standard edition.
+[32m[1m✔  firestore:[22m[39m Firestore Emulator UI websocket is running on 9150.
+[33m[1m⚠ [22m[39m It appears you are running in a CI environment. You can avoid downloading the Storage Emulator repeatedly by caching the /home/runner/.cache/firebase/emulators directory.
+[36m[1mi  storage:[22m[39m downloading cloud-storage-rules-runtime-v1.1.3.jar...
+
+[33m[1m⚠  hosting:[22m[39m Could not fetch web app configuration and there is no cached configuration on this machine. Check your internet connection and make sure you are authenticated. To continue, you must call firebase.initializeApp({...}) in your code before using Firebase.
+[36m[1mi  hosting[keko-memos]:[22m[39m Serving hosting files from: [1mpublic[22m
+[32m[1m✔  hosting[keko-memos]:[22m[39m Local server: [4m[1mhttp://127.0.0.1:5000[22m[24m
+[36m[1mi [22m[39m Running script: [1mnode --test --test-reporter=spec pruebas/reglas.test.mjs 2>&1 | tee informe/reglas.log && node pruebas/sembrar.mjs && node pruebas/recorrido.mjs[22m
+✔ un extraño no puede leer el hogar ni sus recetas (1698.378064ms)
+✔ sin sesión no se puede consultar un código (129.797831ms)
+✔ unirse con el código correcto funciona (130.881639ms)
+[2026-10-19T19:00:19.612Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb62 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L36:26 for 'create' @ L36, evaluation error at L39:26 for 'update' @ L39, false for 'create' @ L36
+✔ unirse con un código falso falla (96.079837ms)
+✔ crear un hogar nuevo con su código funciona (102.750543ms)
+[2026-10-19T19:00:19.788Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb66 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L16:24 for 'create' @ L16
+✔ no se puede secuestrar un código de otro hogar (72.561623ms)
+[2026-10-19T19:00:19.889Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb69 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L46:25 for 'update' @ L46, false for 'update' @ L46
+[2026-10-19T19:00:19.904Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb6a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L46:25 for 'delete' @ L46, false for 'delete' @ L46
+✔ un menor lee recetas pero no las edita ni borra (117.531512ms)
+[2026-10-19T19:00:19.995Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb6c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L50:25 for 'create' @ L50, evaluation error at L50:25 for 'update' @ L50, false for 'create' @ L50
+✔ un menor no puede planificar menús (89.442147ms)
+[2026-10-19T19:00:20.080Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb6e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L55:26 for 'delete' @ L55, false for 'delete' @ L55
+✔ un menor añade y marca la compra pero no la borra (84.799275ms)
+[2026-10-19T19:00:20.153Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb70 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L39:26 for 'update' @ L39, false for 'update' @ L39
+✔ un menor no puede hacerse adulto (99.081401ms)
+✔ un adulto planifica, edita recetas y cambia quién cocina (89.582025ms)
+[2026-10-19T19:00:20.357Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb75 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L29:24 for 'update' @ L29, false for 'update' @ L29
+[2026-10-19T19:00:20.388Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb76 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L29:24 for 'update' @ L29, false for 'update' @ L29
+✔ nadie puede cambiar el administrador ni el código del hogar (118.744295ms)
+[2026-10-19T19:00:20.463Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb78 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L59, evaluation error at L60:26 for 'update' @ L60, false for 'create' @ L59
+✔ los avisos se firman con el propio usuario (75.331789ms)
+✔ cualquier miembro registra tareas de casa (67.06061ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3202.51716
+(node:3163) MetadataLookupWarning: received unexpected error = All promises were rejected code = 404, ENOTFOUND
+(Use `node --trace-warnings ...` to show where the warning was created)
+Datos de ejemplo cargados
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:22 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:22 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:22 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:22 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+OK  La pantalla de entrada carga
+OK  Entrar con el código familiar (anónimo) y unirse al hogar
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:23 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:23 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:23 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:23 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+OK  Modo tablet activado
+OK  Hoy: muestra los platos del día y la cocinera habitual
+OK  Tareas: marcar que Lucía ha puesto la mesa suma puntos
+OK  Aviso rápido «Poned la mesa» se envía
+OK  Cambiar quién cocina solo para hoy
+OK  Tablet: un peque pregunta a KeKoMeMos y supera el reto
+OK  Recetas: la opción «Pedir a KeKoMeMos» está disponible
+OK  Semana: se ve la planificación
+OK  Semana: intercambiar dos días
+OK  Menús: vista mensual
+OK  Menús: crear una receta nueva directamente en un día vacío
+OK  Recetas: lista, filtro y detalle
+OK  Recetas: crear una receta nueva
+OK  Modo cocina: abre y avanza de paso
+OK  Compra: añadir, marcar y guardar en casa
+FALLO  Perfil: QR, código y los 5 temas — locator.waitFor: Error: strict mode violation: getByText('PRUEBA') resolved to 3 elements:
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:31 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:31 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:31 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:31 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+OK  Móvil: un menor se une con el código
+OK  Móvil menor: el menú está oculto hasta resolver el reto
+OK  Móvil menor: puede añadir a la compra pero no borrar
+OK  La tablet recibe el aviso que envía el móvil
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:35 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:35 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:35 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [19/Oct/2026:19:00:35 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+OK  Móvil adulto: vistas principales
+## Recorrido con emuladores (http://127.0.0.1:5000)
+
+✅ La pantalla de entrada carga
+✅ Entrar con el código familiar (anónimo) y unirse al hogar
+✅ Modo tablet activado
+✅ Hoy: muestra los platos del día y la cocinera habitual
+✅ Tareas: marcar que Lucía ha puesto la mesa suma puntos
+✅ Aviso rápido «Poned la mesa» se envía
+✅ Cambiar quién cocina solo para hoy
+✅ Tablet: un peque pregunta a KeKoMeMos y supera el reto
+✅ Recetas: la opción «Pedir a KeKoMeMos» está disponible
+✅ Semana: se ve la planificación
+✅ Semana: intercambiar dos días
+✅ Menús: vista mensual
+✅ Menús: crear una receta nueva directamente en un día vacío
+✅ Recetas: lista, filtro y detalle
+✅ Recetas: crear una receta nueva
+✅ Modo cocina: abre y avanza de paso
+✅ Compra: añadir, marcar y guardar en casa
+❌ Perfil: QR, código y los 5 temas — locator.waitFor: Error: strict mode violation: getByText('PRUEBA') resolved to 3 elements:
+✅ Móvil: un menor se une con el código
+✅ Móvil menor: el menú está oculto hasta resolver el reto
+✅ Móvil menor: puede añadir a la compra pero no borrar
+✅ La tablet recibe el aviso que envía el móvil
+✅ Móvil adulto: vistas principales
+
+**22 de 23 pasos correctos.**
+
+### Errores de la página
+- [tablet] consola: Failed to load resource: the server responded with a status of 401 ()
+- [móvil menor] consola: Failed to load resource: the server responded with a status of 401 ()
+
+[33m[1m⚠ [22m[39m Script exited unsuccessfully (code 1)
+[36m[1mi  emulators:[22m[39m Shutting down emulators.
+[36m[1mi  hosting:[22m[39m Stopping Hosting Emulator
+[36m[1mi  firestore:[22m[39m Stopping Firestore Emulator
+[36m[1mi  auth:[22m[39m Stopping Authentication Emulator
+[36m[1mi  storage:[22m[39m Stopping Storage Emulator
+[36m[1mi  hub:[22m[39m Stopping emulator hub
+[36m[1mi  logging:[22m[39m Stopping Logging Emulator
+
+[1m[31mError:[39m[22m Script "[1mnode --test --test-reporter=spec pruebas/reglas.test.mjs 2>&1 | tee informe/reglas.log && node pruebas/sembrar.mjs && node pruebas/recorrido.mjs[22m" exited with code 1

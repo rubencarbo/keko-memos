@@ -1,0 +1,42 @@
+✔ un extraño no puede leer el hogar ni sus recetas (1698.378064ms)
+✔ sin sesión no se puede consultar un código (129.797831ms)
+✔ unirse con el código correcto funciona (130.881639ms)
+[2026-10-19T19:00:19.612Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb62 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L36:26 for 'create' @ L36, evaluation error at L39:26 for 'update' @ L39, false for 'create' @ L36
+✔ unirse con un código falso falla (96.079837ms)
+✔ crear un hogar nuevo con su código funciona (102.750543ms)
+[2026-10-19T19:00:19.788Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb66 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L16:24 for 'create' @ L16
+✔ no se puede secuestrar un código de otro hogar (72.561623ms)
+[2026-10-19T19:00:19.889Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb69 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L46:25 for 'update' @ L46, false for 'update' @ L46
+[2026-10-19T19:00:19.904Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb6a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L46:25 for 'delete' @ L46, false for 'delete' @ L46
+✔ un menor lee recetas pero no las edita ni borra (117.531512ms)
+[2026-10-19T19:00:19.995Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb6c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L50:25 for 'create' @ L50, evaluation error at L50:25 for 'update' @ L50, false for 'create' @ L50
+✔ un menor no puede planificar menús (89.442147ms)
+[2026-10-19T19:00:20.080Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb6e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L55:26 for 'delete' @ L55, false for 'delete' @ L55
+✔ un menor añade y marca la compra pero no la borra (84.799275ms)
+[2026-10-19T19:00:20.153Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb70 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L39:26 for 'update' @ L39, false for 'update' @ L39
+✔ un menor no puede hacerse adulto (99.081401ms)
+✔ un adulto planifica, edita recetas y cambia quién cocina (89.582025ms)
+[2026-10-19T19:00:20.357Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb75 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L29:24 for 'update' @ L29, false for 'update' @ L29
+[2026-10-19T19:00:20.388Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb76 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L29:24 for 'update' @ L29, false for 'update' @ L29
+✔ nadie puede cambiar el administrador ni el código del hogar (118.744295ms)
+[2026-10-19T19:00:20.463Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x3306bb78 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L59, evaluation error at L60:26 for 'update' @ L60, false for 'create' @ L59
+✔ los avisos se firman con el propio usuario (75.331789ms)
+✔ cualquier miembro registra tareas de casa (67.06061ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3202.51716
