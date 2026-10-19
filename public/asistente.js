@@ -1,5 +1,5 @@
 // =========================================================
-// Menú Familiar · asistente.js
+// KeKoMeMos · asistente.js
 // Gemini (Firebase AI Logic), modo cocina manos libres
 // y el reto de los menores.
 // =========================================================
@@ -71,6 +71,19 @@ export async function importarReceta({ texto, foto }) {
   return pedirJSON(partes, "Eres un asistente de cocina que estructura recetas caseras españolas.");
 }
 
+// Crear una receta nueva a partir de una petición ("fideos a la cazuela", "algo con calabacín y rápido"…)
+export async function crearReceta(pedido) {
+  return pedirJSON([FORMATO_RECETA, `Escribe una receta casera, realista y bien explicada para una familia de 5 (2 adultos y 3 adolescentes) a partir de esta petición: "${pedido}". Si es un plato tradicional, respeta la receta clásica española.`],
+    "Eres KeKoMeMos, el ayudante de cocina de una familia española. Escribes recetas fiables, con cantidades concretas.");
+}
+
+// Prueba rápida de que Gemini responde (para diagnosticar)
+export async function probarGemini() {
+  const t0 = Date.now();
+  const r = await preguntar("Responde solo con: ¡Hola desde KeKoMeMos!");
+  return `${r} (${Date.now() - t0} ms)`;
+}
+
 // Foto del plato generada por Gemini → Blob
 export async function generarFotoPlato(titulo, ingredientes = []) {
   const m = getGenerativeModel(ai, {
@@ -112,6 +125,24 @@ Suma cantidades del mismo ingrediente, unifica nombres equivalentes y quita lo q
 Devuelve JSON: {"faltan":[{"nombre":"huevo","cantidad":12,"unidad":"ud"}]} con nombres en minúsculas.`
   ]);
   return res.faltan || [];
+}
+
+// Acertijo de lógica o ingenio creado por Gemini; si falla, reto matemático local
+export async function generarAcertijo(edad = 16) {
+  if (Math.random() < 0.35) return generarReto(edad);
+  try {
+    const temas = ["lógica", "adivinanza", "ingenio lateral", "secuencia de letras", "acertijo de cocina", "problema de razonamiento", "acertijo con trampa"];
+    const tema = temas[Math.floor(Math.random() * temas.length)];
+    const r = await pedirJSON([`Crea un acertijo de ${tema} en castellano para alguien de ${edad} años, ni demasiado fácil ni imposible, que se pueda resolver en menos de un minuto.
+Debe tener UNA única respuesta correcta clara y 3 opciones incorrectas plausibles. Respuestas cortas (máximo 5 palabras).
+Devuelve JSON: {"pregunta": string, "opciones": [4 strings], "correcta": string (idéntica a una de las opciones), "explicacion": string corta}`],
+      "Eres KeKoMeMos, un asistente divertido que pone retos mentales a adolescentes antes de desvelar el menú del día.");
+    if (!r?.pregunta || !Array.isArray(r.opciones) || r.opciones.length < 2 || !r.opciones.includes(r.correcta)) throw new Error("acertijo mal formado");
+    return { pregunta: r.pregunta, opciones: barajar([...r.opciones]), correcta: r.correcta, explicacion: r.explicacion || "", ia: true };
+  } catch (e) {
+    console.warn("Acertijo local:", e);
+    return generarReto(edad);
+  }
 }
 
 // =========================================================

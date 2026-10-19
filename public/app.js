@@ -1,5 +1,5 @@
 // =========================================================
-// Menú Familiar · app.js
+// KeKoMeMos · app.js
 // Firebase (login, datos, fotos, notificaciones) + pantallas
 // =========================================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
@@ -191,7 +191,7 @@ function mostrarEntrada(modo) {
     p.innerHTML = `
       <div class="entrada-caja">
         <div class="etiqueta">Bienvenidos</div>
-        <h1 class="titulo">Menú familiar</h1>
+        <h1 class="titulo">KeKoMeMos</h1>
         <p class="suave">Menús, recetas, lista de la compra y avisos para toda la casa.</p>
         <button class="btn btn-primario btn-grande" data-accion="login-google">Entrar con Google</button>
         <button class="btn btn-grande" data-accion="login-anonimo">Entrar con el código familiar</button>
@@ -329,12 +329,41 @@ function aplicarTema() {
   $('meta[name="theme-color"]').setAttribute("content", color || "#2E6B4F");
 }
 
+// Genera con Gemini la foto de las recetas que no tienen (máx. 3 por sesión, sin repetir intentos el mismo día)
+let fotosEnCurso = false;
+async function rellenarFotos(max = 3) {
+  if (fotosEnCurso) return;
+  fotosEnCurso = true;
+  try {
+    const pendientes = S.recetas.filter((r) => !r.foto && (Date.now() - (r.fotoIntento || 0)) > 86400000).slice(0, max);
+    for (const r of pendientes) await fotoParaReceta(r.id, false);
+  } finally { fotosEnCurso = false; }
+}
+async function fotoParaReceta(id, avisar = true) {
+  const r = receta(id);
+  if (!r) return;
+  await updateDoc(ref$("recetas", id), { fotoIntento: Date.now() });
+  try {
+    if (avisar) notificar(`KeKoMeMos está preparando la foto de ${r.titulo}…`);
+    const blob = await comprimir(await IA.generarFotoPlato(r.titulo, r.ingredientes || []));
+    const url = await subirImagen(`hogares/${S.hogarId}/recetas/${id}-${Date.now()}.jpg`, blob);
+    const actual = receta(id);
+    if (actual?.foto && !actual.fotoGenerada) return; // alguien subió una foto mientras tanto: la suya manda
+    await updateDoc(ref$("recetas", id), { foto: url, fotoGenerada: true });
+    if (avisar) notificar("Foto lista");
+  } catch (e) {
+    console.error("Foto con Gemini:", e);
+    if (avisar) notificar("Gemini no ha podido crear la foto: " + (e.code || e.message));
+  }
+}
+
 function arrancarApp() {
   $("#cargando").hidden = true;
   $("#pantalla-entrada").hidden = true;
   $("#app").hidden = false;
   if (esMenor() && !esTablet()) S.vista = "hoy";
   render();
+  if (esAdulto() && !EMULADORES) setTimeout(rellenarFotos, 4000);
   if (!EMULADORES && "serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(console.error);
 }
 
@@ -400,7 +429,7 @@ function tarjetaPlato(tipo, grande) {
     <div class="plato-cuerpo">
       ${grande ? "" : `<div class="etiqueta">${etiqueta}</div>`}
       <div class="${oculto ? "oculto-reto" : ""}"><div class="plato-titulo">${esc(titulo)}</div><div class="suave">${esc(meta)}</div></div>
-      ${oculto ? `<button class="btn btn-acento btn-grande" data-accion="reto">¿Qué hay de ${tipo}? Resuelve el reto</button>` : `
+      ${oculto ? `<button class="btn btn-acento btn-grande" data-accion="reto">${icono("chispa")}¿Qué hay de ${tipo}? Pregunta a KeKoMeMos</button>` : `
       <div class="fila">
         ${r ? `<button class="btn" data-accion="ver-receta" data-id="${r.id}">Ver receta</button>` : ""}
         ${esAdulto() ? `<button class="btn" data-accion="elegir-hueco" data-hueco="${hoy()}_${tipo}">Cambiar</button>` : ""}
@@ -464,6 +493,7 @@ function panelRanking(completo = false) {
 function vistaHoy() {
   return `<div class="hoy">
     <div class="pila">
+      ${bannerPregunta()}
       ${tarjetaPlato("comida", comidaActual() === "comida")}
       ${tarjetaPlato("cena", comidaActual() === "cena")}
       ${esAdulto() ? botonCocinarAhora() : ""}
@@ -526,7 +556,7 @@ function vistaRecetas() {
     <div class="fila">
       <label class="oculto-visual" for="buscar">Buscar receta</label>
       <input id="buscar" class="entrada-texto crece" placeholder="Buscar por nombre o ingrediente" value="${esc(S.busqueda)}" data-input="buscar">
-      ${esAdulto() ? `<button class="btn btn-primario" data-accion="nueva-receta">+ Nueva</button><button class="btn" data-accion="importar">${icono("chispa")}Importar</button>` : ""}
+      ${esAdulto() ? `<button class="btn btn-primario" data-accion="pedir-receta">${icono("chispa")}Pedir a KeKoMeMos</button><button class="btn" data-accion="importar">Importar texto o foto</button><button class="btn" data-accion="nueva-receta">+ Escribirla yo</button>` : ""}
     </div>
     <div class="chips-scroll">${filtros.map(([id, t]) => `<button class="chip" data-accion="filtro" data-filtro="${id}" aria-pressed="${S.filtro === id}">${esc(t)}</button>`).join("")}</div>
     ${lista.length ? `<div class="rejilla-recetas">${lista.map((r) => `
@@ -553,7 +583,8 @@ function vistaReceta() {
         <div class="fila">
           ${esAdulto() ? `<button class="btn btn-primario" data-accion="cocinar" data-id="${r.id}">${icono("mic")}Cocinar manos libres</button>
           <button class="btn" data-accion="planificar" data-id="${r.id}">Planificar</button>
-          <button class="btn" data-accion="editar-receta" data-id="${r.id}">Editar</button>` : ""}
+          <button class="btn" data-accion="editar-receta" data-id="${r.id}">Editar</button>
+          ${!r.foto || r.fotoGenerada ? `<button class="btn" data-accion="foto-receta" data-id="${r.id}">${icono("chispa")}${r.foto ? "Otra foto con IA" : "Crear foto con IA"}</button>` : ""}` : ""}
         </div>
       </div>
       <div class="pila">
@@ -692,6 +723,10 @@ function vistaYo() {
     <div class="pila">
       ${panelRanking(true)}
       ${esAdulto() ? panelHogar() : ""}
+      ${esAdulto() ? `<section class="tarjeta seccion pila"><h2 class="h2">KeKoMeMos (Gemini)</h2>
+        <p class="suave" style="margin:0">La IA escribe recetas, crea las fotos de los platos, pone los acertijos, rellena la semana, calcula la compra y te ayuda en el modo cocina.</p>
+        <div class="fila"><button class="btn" data-accion="probar-ia">Probar conexión con Gemini</button>
+        <button class="btn" data-accion="fotos-pendientes">${icono("chispa")}Crear fotos que faltan</button></div></section>` : ""}
     </div>
   </div>`;
 }
@@ -831,29 +866,68 @@ function modalElegirReceta(titulo, alElegir) {
   });
 }
 
-function modalReto() {
-  const r = IA.generarReto(edad(S.yo.nacimiento) ?? 16);
-  abrirModal(`${cabeceraModal("Reto del menú")}
-    <p class="suave">Acierta y descubre qué hay hoy de comer (+${PUNTOS_RETO} puntos).</p>
+// Reto del menú: KeKoMeMos pone un acertijo y, al acertar, desvela la comida
+async function modalReto(persona = S.yo) {
+  const e = edad(persona.nacimiento) ?? 16;
+  abrirModal(`${cabeceraModal("Pregunta a KeKoMeMos")}
+    <p class="suave">${esc(persona.nombre)}, ¿quieres saber qué hay de comer? Primero, un reto…</p>
+    <div class="reto-pregunta suave">KeKoMeMos está pensando un acertijo…</div>`);
+  const r = await IA.generarAcertijo(e);
+  if ($("#modal").hidden) return;
+  abrirModal(`${cabeceraModal("Pregunta a KeKoMeMos")}
+    <p class="suave">${esc(persona.nombre)}, acierta y descubre el menú (+${PUNTOS_RETO} puntos).</p>
     <div class="reto-pregunta">${esc(r.pregunta)}</div>
     <div class="reto-opciones">${r.opciones.map((o) => `<button class="btn" data-respuesta="${esc(o)}">${esc(o)}</button>`).join("")}</div>`);
-  $(".reto-opciones").addEventListener("click", async (e) => {
-    const b = e.target.closest("[data-respuesta]");
-    if (!b) return;
+  $(".reto-opciones").addEventListener("click", async (ev) => {
+    const b = ev.target.closest("[data-respuesta]");
+    if (!b || b.disabled) return;
     if (String(b.dataset.respuesta) === String(r.correcta)) {
-      const clave = "reto-" + hoy();
+      const clave = `reto-${persona.id}-${hoy()}`;
       const primera = localStorage.getItem(clave) !== "1";
       localStorage.setItem(clave, "1");
-      cerrarModal();
-      notificar("¡Correcto! Ya puedes ver el menú.");
-      if (primera) await sumarPuntos(S.user.uid, PUNTOS_RETO);
+      if (persona.id === S.user.uid) localStorage.setItem("reto-" + hoy(), "1");
+      if (primera) await sumarPuntos(persona.id, PUNTOS_RETO).catch(console.error);
+      revelarMenu(persona, r.explicacion, primera);
       render();
     } else {
+      b.disabled = true;
       b.classList.add("mal");
-      b.textContent = "Casi…";
-      setTimeout(modalReto, 900);
+      b.textContent = "¡Casi!";
+      setTimeout(() => modalReto(persona), 1000);
     }
   });
+}
+function revelarMenu(persona, explicacion, conPuntos) {
+  const plato = (tipo) => {
+    const m = S.menus[`${hoy()}_${tipo}`], r = m && receta(m.recetaId);
+    return `<div class="tarjeta plato compacto"><div class="foto">${fotoHTML(r, "")}</div><div class="plato-cuerpo">
+      <div class="etiqueta">${tipo === "comida" ? "Comida" : "Cena"}</div><div class="plato-titulo">${esc(m?.titulo || "Sorpresa (aún sin decidir)")}</div></div></div>`;
+  };
+  abrirModal(`${cabeceraModal(`¡Bien, ${persona.nombre}!`)}
+    ${explicacion ? `<p class="suave">${esc(explicacion)}</p>` : ""}
+    ${conPuntos ? `<p><b>+${PUNTOS_RETO} puntos</b> para la liga.</p>` : ""}
+    ${plato("comida")}${plato("cena")}
+    <button class="btn btn-primario btn-grande" data-accion="cerrar-modal">¡Genial!</button>`);
+}
+function elegirPeque() {
+  const menores = S.miembros.filter((m) => m.rol === "menor");
+  if (!menores.length) return notificar("No hay menores en el hogar todavía.");
+  abrirModal(`${cabeceraModal("¿Quién pregunta?")}
+    <div class="selector-cocinero">${menores.map((m) => `<button data-peque="${m.id}">${avatar(m, 84)}<span>${esc(m.nombre)}</span></button>`).join("")}</div>`);
+  $(".selector-cocinero").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-peque]");
+    if (b) modalReto(miembro(b.dataset.peque));
+  });
+}
+function bannerPregunta() {
+  if (esMenor()) {
+    if (localStorage.getItem("reto-" + hoy()) === "1") return "";
+    return `<button class="pregunta-keko" data-accion="reto">${icono("chispa")}<span><b>¿Qué hay de comer hoy?</b><small>Pregunta a KeKoMeMos y supera su reto</small></span></button>`;
+  }
+  if (esTablet() && S.miembros.some((m) => m.rol === "menor")) {
+    return `<button class="pregunta-keko" data-accion="reto-tablet">${icono("chispa")}<span><b>¿Qué hay de comer?</b><small>Los chicos preguntan a KeKoMeMos</small></span></button>`;
+  }
+  return "";
 }
 
 function modalTarea(tareaId) {
@@ -936,7 +1010,8 @@ const ACCIONES = {
       await updateDoc(doc(db, "hogares", S.hogarId), { cocinaHoy: uid === S.hogar.cocineraHabitual ? deleteField() : { fecha: hoy(), uid } });
     });
   },
-  reto: modalReto,
+  reto: () => modalReto(S.yo),
+  "reto-tablet": elegirPeque,
   "ver-receta": (d) => { if (!d.id) return ACCIONES.ir({ vista: "recetas" }); S.vista = "receta"; S.param = d.id; render(); window.scrollTo(0, 0); },
   "nueva-receta": () => { S.vista = "editor"; S.param = null; S.borrador = null; S.editorFoto = null; render(); },
   "editar-receta": (d) => { S.vista = "editor"; S.param = d.id; S.borrador = null; S.editorFoto = null; render(); },
@@ -1035,6 +1110,29 @@ const ACCIONES = {
     } catch (e) { console.error(e); notificar("No se pudo calcular la lista ahora."); }
     render();
   },
+  "pedir-receta": () => abrirModal(`${cabeceraModal("Pedir receta a KeKoMeMos")}
+    <form class="pila" data-form="pedir-receta">
+      <label class="campo">¿Qué te apetece cocinar?
+        <textarea name="pedido" rows="3" required placeholder="Fideos a la cazuela como los de la abuela, para 5…"></textarea></label>
+      <div class="chips">${["Fideos a la cazuela", "Pizza casera", "Algo rápido con pollo", "Cena ligera con verduras", "Postre para Navidad"].map((t) => `<button type="button" class="chip" data-ejemplo="${esc(t)}">${esc(t)}</button>`).join("")}</div>
+      <label class="campo">Categoría <select name="categoria">${Object.entries(CATEGORIAS).map(([id, t]) => `<option value="${id}" ${id === "quiero_probar" ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+      <button class="btn btn-primario btn-grande">${icono("chispa")}Crear receta con foto</button>
+      <small class="suave">KeKoMeMos (Gemini) escribe la receta y crea una foto del plato. Podrás revisarla antes de guardar.</small>
+    </form>`),
+  "foto-receta": (d) => fotoParaReceta(d.id),
+  "fotos-pendientes": async () => {
+    const n = S.recetas.filter((r) => !r.foto).length;
+    if (!n) return notificar("Todas las recetas tienen foto.");
+    notificar(`Creando ${Math.min(n, 5)} fotos… pueden tardar un poco.`);
+    for (const r of S.recetas.filter((x) => !x.foto).slice(0, 5)) await fotoParaReceta(r.id, false);
+    notificar("Fotos terminadas");
+  },
+  "probar-ia": async (_, el) => {
+    el.disabled = true; el.textContent = "Probando…";
+    try { notificar("Gemini responde: " + await IA.probarGemini()); }
+    catch (e) { console.error(e); notificar("Gemini falla: " + (e.code || "") + " " + String(e.message).slice(0, 160)); }
+    el.disabled = false; el.textContent = "Probar conexión con Gemini";
+  },
   importar: () => abrirModal(`${cabeceraModal("Importar receta")}
     <form class="pila" data-form="importar">
       <label class="campo">Pega el texto de la receta <textarea name="texto" rows="6" placeholder="Copia la receta de una web, un mensaje…"></textarea></label>
@@ -1122,6 +1220,30 @@ const FORMS = {
     await updateDoc(ref$("miembros", S.user.uid), { nombre: f.get("nombre").trim() });
     notificar("Nombre guardado");
   },
+  async "pedir-receta"(f, form) {
+    const boton = form.querySelector("button.btn-primario");
+    boton.disabled = true; boton.textContent = "KeKoMeMos está escribiendo la receta…";
+    try {
+      const r = await IA.crearReceta(String(f.get("pedido")).trim());
+      cerrarModal();
+      S.vista = "editor"; S.param = null; S.editorFoto = null;
+      S.borrador = { ...r, categoria: f.get("categoria") || "quiero_probar" };
+      render();
+      notificar("Receta lista. Ahora preparo la foto…");
+      try {
+        const blob = await comprimir(await IA.generarFotoPlato(r.titulo, r.ingredientes || []));
+        if (S.vista === "editor" && !S.editorFoto) {
+          S.editorFoto = { blob, url: URL.createObjectURL(blob), generada: true };
+          const caja = $("#editor-foto");
+          if (caja) caja.innerHTML = `<img src="${S.editorFoto.url}" alt="">`;
+        }
+      } catch (e) { console.error(e); notificar("La foto no ha salido; se intentará al guardar."); }
+    } catch (e) {
+      console.error(e);
+      notificar("Gemini no ha podido crear la receta: " + (e.code || e.message));
+      boton.disabled = false; boton.innerHTML = `${icono("chispa")}Crear receta con foto`;
+    }
+  },
   async importar(f) {
     const texto = String(f.get("texto") || "").trim();
     const foto = f.get("foto");
@@ -1161,10 +1283,12 @@ const FORMS = {
         datos.fotoGenerada = !!S.editorFoto.generada;
       }
       await setDoc(ref$("recetas", id), datos, { merge: true });
+      const sinFoto = !datos.foto && !receta(id)?.foto;
       S.borrador = null; S.editorFoto = null;
       S.vista = "receta"; S.param = id;
       render();
       notificar("Receta guardada");
+      if (sinFoto) fotoParaReceta(id);
     } catch (e) {
       console.error(e);
       notificar("No se pudo guardar.");
@@ -1175,6 +1299,8 @@ const FORMS = {
 
 document.addEventListener("click", (e) => {
   if (e.target.id === "modal") return cerrarModal();
+  const ej = e.target.closest("[data-ejemplo]");
+  if (ej) { const t = ej.closest("form").pedido; t.value = ej.dataset.ejemplo; t.focus(); return; }
   const el = e.target.closest("[data-accion]");
   if (!el || el.disabled) return;
   const f = ACCIONES[el.dataset.accion];

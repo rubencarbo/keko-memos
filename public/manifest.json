@@ -1,6 +1,6 @@
 {
-  "name": "Menú Familiar",
-  "short_name": "Menú",
+  "name": "KeKoMeMos",
+  "short_name": "KeKoMeMos",
   "description": "Menús, recetas, lista de la compra y avisos de casa",
   "lang": "es",
   "start_url": "/",

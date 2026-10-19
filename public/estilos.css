@@ -478,3 +478,13 @@ a { color: var(--primario); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Botón "Pregunta a KeKoMeMos" */
+.pregunta-keko {
+  width: 100%; border: 0; border-radius: var(--radio); padding: 18px 20px; text-align: left;
+  background: var(--acento); color: var(--sobre-acento); box-shadow: var(--sombra);
+  display: flex; align-items: center; gap: 16px; font-size: 20px;
+}
+.pregunta-keko svg { width: 40px; height: 40px; flex-shrink: 0; }
+.pregunta-keko span { display: flex; flex-direction: column; gap: 2px; }
+.pregunta-keko small { font-size: 15px; font-weight: 600; opacity: .85; }

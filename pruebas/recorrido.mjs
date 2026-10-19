@@ -22,6 +22,19 @@ function vigilar(page, quien) {
   page.on("console", (m) => { if (m.type() === "error") erroresPagina.push(`[${quien}] consola: ${m.text().slice(0, 300)}`); });
 }
 
+// Responde hasta acertar (cada fallo genera un reto nuevo) y espera a que se revele el menú
+async function resolverReto(p, nombre, foto) {
+  await p.locator(".reto-opciones").waitFor({ timeout: 30000 });
+  if (foto) await captura(p, foto);
+  for (let i = 0; i < 20; i++) {
+    if (await p.getByText(`¡Bien, ${nombre}!`).count()) return;
+    const op = p.locator(".reto-opciones button:not([disabled])").first();
+    if (await op.count()) await op.click().catch(() => {});
+    await p.waitForTimeout(1400);
+  }
+  await p.getByText(`¡Bien, ${nombre}!`).waitFor({ timeout: 5000 });
+}
+
 const navegador = await chromium.launch();
 
 // ---------- ADULTO EN LA TABLET ----------
@@ -84,6 +97,24 @@ if (!EN_VIVO) {
     await t.getByText("Hoy cocina Marta").waitFor();
   });
 
+  await paso("Tablet: un peque pregunta a KeKoMeMos y supera el reto", async () => {
+    await t.getByRole("button", { name: /Los chicos preguntan a KeKoMeMos/ }).click();
+    await t.locator(".selector-cocinero").getByRole("button", { name: "Pablo" }).click();
+    await resolverReto(t, "Pablo", "tablet-reto-peque");
+    await captura(t, "tablet-menu-revelado");
+    await t.getByRole("button", { name: "¡Genial!" }).click();
+    await t.getByText("45 pts").waitFor({ timeout: 10000 });
+  });
+
+  await paso("Recetas: la opción «Pedir a KeKoMeMos» está disponible", async () => {
+    await t.locator("#nav").getByRole("button", { name: "Recetas" }).click();
+    await t.getByRole("button", { name: /Pedir a KeKoMeMos/ }).click();
+    await t.locator("#modal").getByRole("button", { name: "Fideos a la cazuela", exact: true }).click();
+    await captura(t, "tablet-pedir-receta");
+    await t.getByRole("button", { name: "Cerrar" }).click();
+    await t.locator("#nav").getByRole("button", { name: "Hoy" }).click();
+  });
+
   await paso("Semana: se ve la planificación", async () => {
     await t.locator("#nav").getByRole("button", { name: "Semana" }).click();
     await t.getByText("Lentejas estofadas").first().waitFor();
@@ -112,7 +143,7 @@ if (!EN_VIVO) {
 
   await paso("Recetas: crear una receta nueva", async () => {
     await t.locator("#nav").getByRole("button", { name: "Recetas" }).click();
-    await t.getByRole("button", { name: "+ Nueva" }).click();
+    await t.getByRole("button", { name: "+ Escribirla yo" }).click();
     await t.locator('input[name="titulo"]').fill("Crema de calabaza");
     await t.locator('textarea[name="ingredientes"]').fill("1 kg calabaza\n1 cebolla\n200 ml nata para cocinar");
     await t.locator('textarea[name="pasos"]').fill("Pocha la cebolla.\nAñade la calabaza y cubre de agua.\nTritura con la nata.");
@@ -176,16 +207,12 @@ if (!EN_VIVO) {
 
   await paso("Móvil menor: el menú está oculto hasta resolver el reto", async () => {
     if (await m.locator("#nav").getByRole("button", { name: "Semana" }).count()) throw new Error("el menor ve la pestaña Semana");
-    await m.getByRole("button", { name: /Resuelve el reto/ }).first().waitFor();
+    await m.getByRole("button", { name: /Pregunta a KeKoMeMos/ }).first().waitFor();
     await captura(m, "movil-menor-hoy");
-    await m.getByRole("button", { name: /Resuelve el reto/ }).first().click();
-    await m.locator(".reto-pregunta").waitFor();
-    await captura(m, "movil-menor-reto");
-    // probar respuestas hasta acertar (cada fallo genera un reto nuevo)
-    for (let i = 0; i < 12 && !(await m.locator("#modal").isHidden()); i++) {
-      await m.locator(".reto-opciones button").first().click();
-      await m.waitForTimeout(1100);
-    }
+    await m.getByRole("button", { name: /Pregunta a KeKoMeMos/ }).first().click();
+    await resolverReto(m, "Hugo", "movil-menor-reto");
+    await captura(m, "movil-menor-menu-revelado");
+    await m.getByRole("button", { name: "¡Genial!" }).click();
     await m.getByText("Fideos a la cazuela").first().waitFor({ timeout: 5000 });
     await captura(m, "movil-menor-menu-visible");
   });
@@ -231,7 +258,7 @@ if (!EN_VIVO) {
 
 await navegador.close();
 
-const ignorar = /fonts\.g|favicon|ERR_BLOCKED|recaptcha|appCheck|app-check|firebaseinstallations|messaging/i;
+const ignorar = /fonts\.g|favicon|ERR_BLOCKED|recaptcha|appCheck|app-check|firebaseinstallations|messaging|generativelanguage|firebasevertexai|firebaseml|Gemini|AI\/|Acertijo|Foto con/i;
 const errores = erroresPagina.filter((e) => !ignorar.test(e));
 const fallos = resultados.filter((r) => r.startsWith("❌")).length;
 const texto = [
