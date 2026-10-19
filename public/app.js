@@ -878,7 +878,13 @@ const ACCIONES = {
     const p = new GoogleAuthProvider();
     try { await signInWithPopup(auth, p); } catch (e) { if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") await signInWithRedirect(auth, p); else notificar("No se pudo entrar: " + e.code); }
   },
-  "login-anonimo": () => signInAnonymously(auth),
+  "login-anonimo": async () => {
+    try { await signInAnonymously(auth); } catch (e) {
+      notificar(e.code === "auth/admin-restricted-operation"
+        ? "La entrada con código no está activada todavía. El administrador debe activar «Anónimo» en Firebase › Authentication."
+        : "No se pudo entrar: " + e.code);
+    }
+  },
   salir: async () => { if (confirmar("¿Cerrar sesión en este dispositivo?")) { await signOut(auth); location.reload(); } },
   ir: (d) => { S.vista = d.vista; S.param = null; S.borrador = null; S.editorFoto = null; render(); window.scrollTo(0, 0); },
   "cerrar-modal": cerrarModal,
