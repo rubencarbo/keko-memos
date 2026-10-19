@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /hogares/{hogar}/{carpeta}/{archivo} {
+      function esMiembro() {
+        return request.auth != null
+          && firestore.exists(/databases/(default)/documents/hogares/$(hogar)/miembros/$(request.auth.uid));
+      }
+      allow read: if esMiembro();
+      allow write: if esMiembro()
+        && carpeta in ['recetas', 'avatares']
+        && request.resource.size < 4 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

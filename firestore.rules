@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function conSesion() { return request.auth != null; }
+    function yoUid() { return request.auth.uid; }
+
+    // Índice usuario → hogar
+    match /usuarios/{uid} {
+      allow read, write: if conSesion() && yoUid() == uid;
+    }
+
+    // Códigos familiares: se pueden consultar uno a uno, no listar
+    match /codigos/{codigo} {
+      allow get: if conSesion();
+      allow create: if conSesion()
+        && getAfter(/databases/$(database)/documents/hogares/$(request.resource.data.hogarId)).data.codigo == codigo
+        && getAfter(/databases/$(database)/documents/hogares/$(request.resource.data.hogarId)).data.admin == yoUid();
+    }
+
+    match /hogares/{hogar} {
+      function rutaYo() { return /databases/$(database)/documents/hogares/$(hogar)/miembros/$(yoUid()); }
+      function esMiembro() { return conSesion() && exists(rutaYo()); }
+      function esAdulto() { return esMiembro() && get(rutaYo()).data.rol == 'adulto'; }
+      function esAdmin() { return conSesion() && get(/databases/$(database)/documents/hogares/$(hogar)).data.admin == yoUid(); }
+
+      allow read: if esMiembro();
+      allow create: if conSesion() && request.resource.data.admin == yoUid();
+      allow update: if esAdulto()
+        && request.resource.data.admin == resource.data.admin
+        && request.resource.data.codigo == resource.data.codigo;
+
+      match /miembros/{uid} {
+        allow read: if esMiembro();
+        // Unirse: solo uno mismo y conociendo el código del hogar
+        allow create: if conSesion() && yoUid() == uid
+          && request.resource.data.codigo == getAfter(/databases/$(database)/documents/hogares/$(hogar)).data.codigo;
+        // Cada uno edita su perfil (sin cambiarse el rol); los adultos pueden editar a todos
+        allow update: if esAdulto()
+          || (yoUid() == uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'codigo']));
+        allow delete: if esAdmin() || yoUid() == uid;
+      }
+
+      match /recetas/{id} {
+        allow read: if esMiembro();
+        allow write: if esAdulto();
+      }
+      match /menus/{id} {
+        allow read: if esMiembro();
+        allow write: if esAdulto();
+      }
+      // Lista de la compra: todos añaden y marcan; solo los adultos borran
+      match /despensa/{id} {
+        allow read, create, update: if esMiembro();
+        allow delete: if esAdulto();
+      }
+      match /avisos/{id} {
+        allow read: if esMiembro();
+        allow create: if esMiembro() && request.resource.data.de == yoUid();
+        allow update: if esMiembro();
+        allow delete: if esAdulto();
+      }
+      match /tareas/{id} {
+        allow read: if esMiembro();
+        allow create: if esMiembro() && request.resource.data.por == yoUid();
+        allow delete: if esAdulto();
+      }
+    }
+  }
+}

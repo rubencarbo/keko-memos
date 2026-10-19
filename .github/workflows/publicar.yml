@@ -1,0 +1,158 @@
+name: Probar y publicar
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+jobs:
+  comprobar:
+    name: Pruebas con emuladores
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Instalar herramientas
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Revisar sintaxis
+        run: |
+          mkdir -p informe
+          for f in public/app.js public/asistente.js; do cp "$f" /tmp/x.mjs && node --check /tmp/x.mjs; done
+          node --check public/sw.js
+          node --check funciones/index.js
+      - name: Reglas de seguridad y recorrido de la app
+        run: |
+          echo "## Reglas de seguridad" >> informe/resultado.md
+          npx firebase emulators:exec --only auth,firestore,storage,hosting --project keko-memos \
+            "node --test --test-reporter=spec pruebas/reglas.test.mjs 2>&1 | tee informe/reglas.log && node pruebas/sembrar.mjs && node pruebas/recorrido.mjs" \
+            2>&1 | tee informe/emuladores.log
+          exit ${PIPESTATUS[0]}
+      - name: Resumen de reglas
+        if: always()
+        run: |
+          if [ -f informe/reglas.log ]; then
+            grep -E "^\s*(✔|✖)" informe/reglas.log | sed -E 's/^\s*✔/✅/; s/^\s*✖/❌/; s/ \([0-9.]+ms\)//' > /tmp/r.txt || true
+            { cat /tmp/r.txt; echo; } > /tmp/reglas.md
+            # coloca el bloque de reglas justo después de su título
+            awk 'NR==FNR{b=b $0 "\n"; next} {print} /^## Reglas de seguridad$/{printf "\n%s", b}' /tmp/reglas.md informe/resultado.md > /tmp/res.md && mv /tmp/res.md informe/resultado.md
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-emuladores
+          path: informe
+          retention-days: 7
+
+  publicar:
+    name: Publicar en Firebase
+    needs: comprobar
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Desplegar
+        run: |
+          mkdir -p informe
+          (cd funciones && npm install --no-audit --no-fund)
+          npx --yes firebase-tools@15.34.0 deploy --project keko-memos --non-interactive --force 2>&1 | tee informe/despliegue.log
+          exit ${PIPESTATUS[0]}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-despliegue
+          path: informe
+          retention-days: 7
+
+  en-vivo:
+    name: Comprobar la web publicada
+    needs: publicar
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Recorrido en https://keko-memos.web.app
+        run: |
+          npm install --no-audit --no-fund playwright@1.64.1
+          npx playwright install --with-deps chromium
+          sleep 20
+          URL=https://keko-memos.web.app SALIDA=informe-vivo node pruebas/recorrido.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: informe-vivo
+          path: informe-vivo
+          retention-days: 7
+
+  informe:
+    name: Guardar informe
+    needs: [comprobar, publicar, en-vivo]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefactos
+      - name: Publicar el informe en la rama «informes»
+        env:
+          R_COMPROBAR: ${{ needs.comprobar.result }}
+          R_PUBLICAR: ${{ needs.publicar.result }}
+          R_VIVO: ${{ needs.en-vivo.result }}
+        run: |
+          mkdir -p salida/capturas salida/registros
+          icono() { case "$1" in success) echo "✅";; skipped) echo "⏭️";; *) echo "❌";; esac; }
+          {
+            echo "# Informe · $(TZ=Europe/Madrid date '+%d/%m/%Y %H:%M')"
+            echo
+            echo "Commit: \`${GITHUB_SHA::7}\` · [ejecución](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+            echo
+            echo "| Fase | Resultado |"
+            echo "|---|---|"
+            echo "| Pruebas con emuladores | $(icono $R_COMPROBAR) $R_COMPROBAR |"
+            echo "| Publicar en Firebase | $(icono $R_PUBLICAR) $R_PUBLICAR |"
+            echo "| Web publicada | $(icono $R_VIVO) $R_VIVO |"
+            echo
+            for d in informe-emuladores informe-vivo; do
+              [ -f "artefactos/$d/resultado.md" ] && cat "artefactos/$d/resultado.md" && echo
+            done
+            if [ -f artefactos/informe-despliegue/despliegue.log ]; then
+              echo "## Despliegue (últimas líneas)"
+              echo '```'
+              tail -n 40 artefactos/informe-despliegue/despliegue.log
+              echo '```'
+            fi
+          } > salida/README.md
+          cp artefactos/informe-emuladores/capturas/*.png salida/capturas/ 2>/dev/null || true
+          for f in artefactos/informe-vivo/capturas/*.png; do [ -f "$f" ] && cp "$f" "salida/capturas/vivo-$(basename "$f")"; done
+          cp artefactos/*/*.log salida/registros/ 2>/dev/null || true
+          cd salida
+          git init -q -b informes
+          git config user.name "informe-bot"
+          git config user.email "informe-bot@users.noreply.github.com"
+          git add -A
+          git commit -qm "Informe de ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" informes

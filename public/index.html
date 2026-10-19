@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Menú Familiar</title>
+  <meta name="description" content="Menús, recetas y lista de la compra de la familia">
+  <meta name="theme-color" content="#2E6B4F">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icono-192.png">
+  <link rel="apple-touch-icon" href="/icono-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Menú">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Caveat:wght@600;700&family=DM+Mono:wght@500&family=DM+Serif+Display&family=Figtree:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/estilos.css">
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js" defer></script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body data-tema="pizarra">
+  <div id="cargando" class="cargando">
+    <div class="cargando-plato" aria-hidden="true"></div>
+    <p>Poniendo la mesa…</p>
+  </div>
+
+  <!-- Pantalla sin sesión o sin hogar -->
+  <section id="pantalla-entrada" class="entrada" hidden></section>
+
+  <!-- Aplicación -->
+  <div id="app" class="app" hidden>
+    <nav id="nav" class="nav" aria-label="Secciones"></nav>
+    <div class="contenido">
+      <header id="cabecera" class="cabecera"></header>
+      <main id="vista" class="vista" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <!-- Capas -->
+  <div id="modal" class="modal-fondo" hidden></div>
+  <div id="cocina" class="cocina" hidden></div>
+  <div id="avisos-flotantes" class="avisos-flotantes" aria-live="polite"></div>
+</body>
+</html>

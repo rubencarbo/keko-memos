@@ -1,0 +1,17 @@
+{
+  "name": "Menú Familiar",
+  "short_name": "Menú",
+  "description": "Menús, recetas, lista de la compra y avisos de casa",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#EAF1EC",
+  "theme_color": "#2E6B4F",
+  "icons": [
+    { "src": "/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icono-512-mascara.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
