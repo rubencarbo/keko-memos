@@ -76,8 +76,17 @@ jobs:
         run: |
           mkdir -p informe
           (cd funciones && npm install --no-audit --no-fund)
-          npx --yes firebase-tools@15.34.0 deploy --project keko-memos --non-interactive --force 2>&1 | tee informe/despliegue.log
-          exit ${PIPESTATUS[0]}
+          set +e
+          FB="npx --yes firebase-tools@15.34.0"
+          # Primero la web y las reglas: así la app se publica aunque falle la función de avisos
+          $FB deploy --only hosting,firestore,storage --project keko-memos --non-interactive --force 2>&1 | tee informe/despliegue.log
+          WEB=${PIPESTATUS[0]}
+          $FB deploy --only functions --project keko-memos --non-interactive --force 2>&1 | tee informe/despliegue-funciones.log
+          FUN=${PIPESTATUS[0]}
+          sed -r 's/\x1B\[[0-9;]*[mK]//g' -i informe/*.log
+          echo "web=$WEB funciones=$FUN" | tee informe/estado.txt
+          [ $WEB -eq 0 ] || exit 1
+          [ $FUN -eq 0 ] || echo "::warning::La función de avisos no se ha desplegado (ver despliegue-funciones.log)"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -139,12 +148,15 @@ jobs:
             for d in informe-emuladores informe-vivo; do
               [ -f "artefactos/$d/resultado.md" ] && cat "artefactos/$d/resultado.md" && echo
             done
-            if [ -f artefactos/informe-despliegue/despliegue.log ]; then
-              echo "## Despliegue (últimas líneas)"
-              echo '```'
-              tail -n 40 artefactos/informe-despliegue/despliegue.log
-              echo '```'
-            fi
+            for f in despliegue despliegue-funciones; do
+              if [ -f artefactos/informe-despliegue/$f.log ]; then
+                echo "## $f (últimas líneas)"
+                echo '```'
+                tail -n 25 artefactos/informe-despliegue/$f.log
+                echo '```'
+              fi
+            done
+            [ -f artefactos/informe-despliegue/estado.txt ] && echo "Estado del despliegue: \`$(cat artefactos/informe-despliegue/estado.txt)\`"
           } > salida/README.md
           cp artefactos/informe-emuladores/capturas/*.png salida/capturas/ 2>/dev/null || true
           for f in artefactos/informe-vivo/capturas/*.png; do [ -f "$f" ] && cp "$f" "salida/capturas/vivo-$(basename "$f")"; done
