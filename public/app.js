@@ -564,14 +564,15 @@ function vistaMes() {
   const inicio = lunesDe(primero);
   const celdas = Array.from({ length: 42 }, (_, i) => masDias(inicio, i));
   const filas = celdas[35].getMonth() === primero.getMonth() ? 6 : (celdas[28].getMonth() === primero.getMonth() ? 5 : 4);
-  const titulo = primero.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  const t0 = primero.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  const titulo = t0.charAt(0).toUpperCase() + t0.slice(1);
   return `<div class="pila">
     ${S.intercambio ? `<div class="banner"><span>Toca el otro día para intercambiar</span><button class="btn" data-accion="cancelar-intercambio">Cancelar</button></div>` : ""}
     <div class="fila">
       ${selectorCalendario()}
       <span class="crece"></span>
       <button class="btn" data-accion="mes" data-delta="-1" aria-label="Mes anterior">‹</button>
-      <strong style="text-align:center;text-transform:capitalize">${esc(titulo)}</strong>
+      <strong style="text-align:center">${esc(titulo)}</strong>
       <button class="btn" data-accion="mes" data-delta="1" aria-label="Mes siguiente">›</button>
     </div>
     ${accionesPlan()}
