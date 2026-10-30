@@ -7,6 +7,13 @@ import {
   getAI, getGenerativeModel, getLiveGenerativeModel, startAudioConversation,
   GoogleAIBackend, ResponseModality, Schema
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-ai.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-functions.js";
+
+// ¿Qué IA usamos?
+//  "cloudflare": gratis (Cloudflare Workers AI, a través de la función «ia» de Firebase)
+//  "gemini": Gemini de Google (necesita saldo en AI Studio). Permite además buscar en Google y la voz natural.
+export const PROVEEDOR = "cloudflare";
+export const CON_GEMINI = PROVEEDOR === "gemini";
 
 // Modelos (si Google retira alguno, se cambia solo aquí)
 export const MODELOS = {
@@ -18,8 +25,18 @@ export const MODELOS = {
 export const VOZ_GEMINI = "Aoede";
 
 let ai = null;
+let iaNube = null;
 export function iniciarIA(app) {
   ai = getAI(app, { backend: new GoogleAIBackend() });
+  iaNube = httpsCallable(getFunctions(app, "europe-west1"), "ia", { timeout: 125000 });
+}
+// Saca el primer objeto JSON de un texto (los modelos abiertos a veces añaden explicaciones)
+function extraerJSON(t) {
+  t = String(t || "").trim().replace(/^```(json)?/i, "").replace(/```$/, "");
+  try { return JSON.parse(t); } catch { /* sigue */ }
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1));
+  throw new Error("La IA no devolvió datos válidos");
 }
 
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -34,15 +51,27 @@ function modelo(json, sistema) {
 }
 
 export async function preguntar(texto, sistema) {
+  if (!CON_GEMINI) {
+    const r = await iaNube({ tipo: "texto", sistema: sistema || "", prompt: texto });
+    return String(r.data.texto || "").trim();
+  }
   const r = await modelo(false, sistema).generateContent(texto);
   return r.response.text().trim();
 }
 
 async function pedirJSON(partes, sistema) {
+  if (!CON_GEMINI) {
+    const textos = partes.filter((p) => typeof p === "string");
+    const img = partes.find((p) => p?.inlineData)?.inlineData?.data;
+    const r = await iaNube({
+      tipo: img ? "vision" : "texto", json: true, imagen: img || "",
+      sistema: (sistema || "Eres un asistente útil.") + " Responde únicamente con un objeto JSON válido, sin texto adicional.",
+      prompt: textos.join("\n\n")
+    });
+    return extraerJSON(r.data.texto);
+  }
   const r = await modelo(true, sistema).generateContent(partes);
-  let t = r.response.text().trim();
-  t = t.replace(/^```(json)?/i, "").replace(/```$/, "");
-  return JSON.parse(t);
+  return extraerJSON(r.response.text());
 }
 
 async function archivoAParte(file) {
@@ -81,6 +110,7 @@ export async function crearReceta(pedido) {
 // Buscar en Google (a través de Gemini con Búsqueda de Google) páginas de recetas
 // Devuelve { enlaces: [{uri, title}], sugerencias: html que Google exige mostrar }
 export async function buscarEnInternet(consulta) {
+  if (!CON_GEMINI) throw new Error("La búsqueda en Google necesita Gemini (PROVEEDOR = \"gemini\")");
   const m = getGenerativeModel(ai, { model: MODELOS.texto, tools: [{ googleSearch: {} }] });
   const r = await m.generateContent(`Busca en Google recetas de "${consulta}" en webs de cocina en español (blogs y webs de recetas conocidas). Responde con una lista breve de las recetas encontradas.`);
   const meta = r.response.candidates?.[0]?.groundingMetadata || {};
@@ -92,7 +122,7 @@ export async function buscarEnInternet(consulta) {
   };
 }
 
-// Prueba rápida de que Gemini responde (para diagnosticar)
+// Prueba rápida de que la IA responde (para diagnosticar)
 export async function probarGemini() {
   const t0 = Date.now();
   const r = await preguntar("Responde solo con: ¡Hola desde KeKoMeMos!");
@@ -101,6 +131,15 @@ export async function probarGemini() {
 
 // Foto del plato generada por Gemini → Blob
 export async function generarFotoPlato(titulo, ingredientes = []) {
+  const lista0 = ingredientes.slice(0, 8).map((i) => i.nombre).join(", ");
+  if (!CON_GEMINI) {
+    const prompt = `Professional realistic food photography of the Spanish home-cooked dish "${titulo}"${lista0 ? ` (made with ${lista0})` : ""}, served on a plate on a family kitchen table, natural window light, 45 degree angle, appetizing, no text, no people.`;
+    const r = await iaNube({ tipo: "imagen", prompt });
+    const bin = atob(r.data.imagen);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: "image/jpeg" });
+  }
   const m = getGenerativeModel(ai, {
     model: MODELOS.imagen,
     generationConfig: { responseModalities: [ResponseModality.TEXT, ResponseModality.IMAGE] }
@@ -253,7 +292,7 @@ Pasos: ${pasos.map((p, i) => `${i + 1}. ${p}`).join(" ")}`;
       </div>
       <div class="fila">
         <button class="btn" data-c="ingredientes">Ingredientes</button>
-        <button class="btn" data-c="live" id="c-live" title="Conversación con voz natural de Gemini">Voz natural</button>
+        ${CON_GEMINI ? `<button class="btn" data-c="live" id="c-live" title="Conversación con voz natural de Gemini">Voz natural</button>` : ""}
         <button class="btn btn-oscuro" data-c="cerrar">Salir</button>
       </div>
     </div>

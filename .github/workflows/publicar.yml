@@ -73,7 +73,12 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       - name: Desplegar
+        env:
+          CF_CUENTA: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
+          # Clave de la IA gratuita (Cloudflare): solo existe durante el despliegue, nunca en el repositorio
+          if [ -n "$CF_TOKEN" ]; then printf 'CF_CUENTA=%s\nCF_TOKEN=%s\n' "$CF_CUENTA" "$CF_TOKEN" > funciones/.env; else echo "::warning::Faltan los secretos de Cloudflare"; fi
           mkdir -p informe
           (cd funciones && npm install --no-audit --no-fund)
           set +e

@@ -154,6 +154,9 @@ const icono = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 // Traduce los errores de Gemini a algo comprensible
 function errorIA(e, que = "KeKoMeMos no ha podido responder") {
   const t = String(e?.message || e || "");
+  if (e?.code === "functions/resource-exhausted") return `${que}: ${t}`;
+  if (e?.code === "functions/failed-precondition") return `${que}: falta configurar la IA gratuita (Cloudflare).`;
+  if (e?.code === "functions/not-found" || e?.code === "functions/internal" && /not found|404/i.test(t)) return `${que}: el servicio de IA aún no está activo.`;
   if (/prepayment|credits are depleted|402|billing/i.test(t)) return `${que}: no queda saldo de Gemini. El administrador debe recargar créditos en AI Studio (aistudio.google.com › Billing).`;
   if (/\b429\b|quota|rate.?limit|too many requests|resource.?exhausted/i.test(t)) return `${que}: demasiadas peticiones seguidas. Prueba en un minuto.`;
   if (/app.?check|attestation|\b403\b/i.test(t)) return `${que}: la protección App Check ha rechazado la petición. Recarga la app.`;
@@ -899,9 +902,9 @@ function vistaYo() {
     <div class="pila">
       ${panelRanking(true)}
       ${esAdulto() ? panelHogar() : ""}
-      ${esAdulto() ? `<section class="tarjeta seccion pila"><h2 class="h2">KeKoMeMos (Gemini)</h2>
+      ${esAdulto() ? `<section class="tarjeta seccion pila"><h2 class="h2">KeKoMeMos (IA ${IA.CON_GEMINI ? "Gemini" : "gratuita · Cloudflare"})</h2>
         <p class="suave" style="margin:0">La IA escribe recetas, crea las fotos de los platos, pone los acertijos, rellena la semana, calcula la compra y te ayuda en el modo cocina.</p>
-        <div class="fila"><button class="btn" data-accion="probar-ia">Probar conexión con Gemini</button>
+        <div class="fila"><button class="btn" data-accion="probar-ia">Probar la IA</button>
         <button class="btn" data-accion="fotos-pendientes">${icono("chispa")}Crear fotos que faltan</button></div></section>` : ""}
     </div>
   </div>`;
@@ -1357,7 +1360,9 @@ const ACCIONES = {
       <form class="pila" data-form="anadir-receta">
         <label class="campo">¿Qué receta?
           <input name="consulta" required autocomplete="off" placeholder="Fideos a la cazuela, lasaña de verduras…"></label>
-        <button class="btn btn-primario btn-grande" name="modo" value="web">${icono("buscar")}Buscar la receta en internet</button>
+        ${IA.CON_GEMINI
+          ? `<button class="btn btn-primario btn-grande" name="modo" value="web">${icono("buscar")}Buscar la receta en internet</button>`
+          : `<button class="btn btn-primario btn-grande" name="modo" value="enlace">${icono("buscar")}Traerla de internet (Google)</button>`}
         <button class="btn btn-grande" name="modo" value="ia">${icono("chispa")}Que la cree KeKoMeMos</button>
         <button class="btn btn-grande" name="modo" value="manual">Escribirla yo</button>
         <button type="button" class="btn-enlace" data-accion="importar" ${d.hueco ? `data-hueco="${d.hueco}"` : ""}>…o importar de un texto o una foto (libro, revista)</button>
@@ -1387,6 +1392,18 @@ const ACCIONES = {
   "buscar-fotos": async (_, el) => {
     const titulo = el.closest("form")?.titulo?.value.trim();
     if (!titulo) return notificar("Escribe primero el nombre del plato.");
+    if (!IA.CON_GEMINI) {
+      abrirModal(`${cabeceraModal("Foto de " + titulo)}
+        <div class="pila">
+          <a class="btn btn-grande" href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent(titulo + " receta")}" target="_blank" rel="noopener">1 · Buscar fotos en Google Imágenes</a>
+          <p class="suave" style="margin:0">Abre la foto (o la receta) que te guste, copia su enlace y pégalo aquí:</p>
+          <form class="pila" data-form="foto-enlace">
+            <input name="url" type="url" required class="entrada-texto" placeholder="https://…" autocomplete="off">
+            <button class="btn btn-primario btn-grande">2 · Usar esta foto</button>
+          </form>
+        </div>`);
+      return;
+    }
     abrirModal(`${cabeceraModal("Fotos de " + titulo)}<p>Buscando fotos en internet…</p><div class="cargando-plato" aria-hidden="true"></div>`, true);
     try {
       const { paginas, sugerencias } = await buscarPaginas(titulo);
@@ -1436,9 +1453,9 @@ const ACCIONES = {
   },
   "probar-ia": async (_, el) => {
     el.disabled = true; el.textContent = "Probando…";
-    try { notificar("Gemini responde: " + await IA.probarGemini()); }
+    try { notificar(`IA (${IA.PROVEEDOR}) responde: ` + await IA.probarGemini()); }
     catch (e) { console.error(e); notificar(errorIA(e, "Gemini no responde")); }
-    el.disabled = false; el.textContent = "Probar conexión con Gemini";
+    el.disabled = false; el.textContent = "Probar la IA";
   },
   importar: (d) => { S.asignarA = d.hueco || null; abrirModal(`${cabeceraModal("Importar receta")}
     <form class="pila" data-form="importar">
@@ -1538,6 +1555,18 @@ const FORMS = {
       render(); window.scrollTo(0, 0);
       return;
     }
+    if (modo === "enlace") {
+      abrirModal(`${cabeceraModal("Receta de internet")}
+        <div class="pila">
+          <a class="btn btn-grande" href="https://www.google.com/search?q=${encodeURIComponent("receta " + consulta)}" target="_blank" rel="noopener">1 · Buscar «${esc(consulta)}» en Google</a>
+          <p class="suave" style="margin:0">Abre la receta que te guste, copia su dirección (enlace) y pégala aquí:</p>
+          <form class="pila" data-form="importar-enlace">
+            <input name="url" type="url" required class="entrada-texto" placeholder="https://…" autocomplete="off">
+            <button class="btn btn-primario btn-grande">2 · Importar receta y foto</button>
+          </form>
+        </div>`);
+      return;
+    }
     if (modo === "ia") {
       const fd = new FormData(); fd.set("pedido", consulta); fd.set("categoria", "quiero_probar");
       return FORMS["pedir-receta"](fd, form);
@@ -1556,6 +1585,32 @@ const FORMS = {
         <div class="google-sugerencias"></div>`, true);
       pintarSugerencias(sugerencias);
     } catch (e) { console.error(e); notificar(errorIA(e, "No se han encontrado recetas")); cerrarModal(); }
+  },
+  async "importar-enlace"(f, form) {
+    const url = String(f.get("url") || "").trim();
+    const b = form.querySelector("button"); b.disabled = true; b.textContent = "Leyendo la página…";
+    try {
+      const res = await leerWebs({ urls: [url] });
+      const p = res.data?.paginas?.[0];
+      if (!p) throw new Error("No se ha podido leer esa página");
+      S.webResultados = [p];
+      await ACCIONES["elegir-web"]({ i: 0 });
+    } catch (e) { console.error(e); notificar(errorIA(e, "No se ha podido importar")); b.disabled = false; b.textContent = "2 · Importar receta y foto"; }
+  },
+  async "foto-enlace"(f, form) {
+    const url = String(f.get("url") || "").trim();
+    const b = form.querySelector("button"); b.disabled = true; b.textContent = "Buscando la foto…";
+    try {
+      const res = await leerWebs({ urls: [url] }).catch(() => null);
+      const fotos = res?.data?.paginas?.[0]?.imagenes || [];
+      if (fotos.length > 1) {
+        abrirModal(`${cabeceraModal("Elige una foto")}
+          <div class="rejilla-fotos">${fotos.map((u) => `<button class="foto-web" data-accion="elegir-foto" data-url="${esc(u)}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></button>`).join("")}</div>`, true);
+        return;
+      }
+      cerrarModal();
+      await ponerFotoWeb(fotos[0] || url, true);
+    } catch (e) { console.error(e); notificar("No se ha podido usar ese enlace"); b.disabled = false; b.textContent = "Usar esta foto"; }
   },
   async "pedir-receta"(f, form) {
     const boton = form.querySelector("button.btn-primario");

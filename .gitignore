@@ -2,3 +2,4 @@ node_modules/
 informe/
 *.log
 .firebase/
+funciones/.env

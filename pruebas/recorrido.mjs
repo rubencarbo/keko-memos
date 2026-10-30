@@ -113,7 +113,7 @@ if (!EN_VIVO) {
     await t.locator("#nav").getByRole("button", { name: "Recetas" }).click();
     await t.getByRole("button", { name: "+ Añadir receta" }).click();
     await t.locator('#modal input[name="consulta"]').fill("Fideos a la cazuela");
-    await t.getByRole("button", { name: /Buscar la receta en internet/ }).waitFor();
+    await t.getByRole("button", { name: /Buscar la receta en internet|Traerla de internet/ }).waitFor();
     await t.getByRole("button", { name: /Que la cree KeKoMeMos/ }).waitFor();
     await captura(t, "tablet-anadir-receta");
     await t.getByRole("button", { name: "Cerrar" }).click();

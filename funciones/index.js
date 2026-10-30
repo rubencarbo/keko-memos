@@ -197,3 +197,75 @@ exports.guardarFotoWeb = onCall({ enforceAppCheck: true, timeoutSeconds: 60 }, a
   await archivo.save(r.cuerpo, { contentType: tipo, resumable: false, metadata: { cacheControl: "public, max-age=31536000" } });
   return { url: await getDownloadURL(archivo) };
 });
+
+// =========================================================
+// IA gratuita con Cloudflare Workers AI (10.000 «neuronas» al día sin coste)
+// La clave de Cloudflare vive solo aquí (variables CF_CUENTA y CF_TOKEN), nunca en la app.
+// =========================================================
+const CF_MODELOS = {
+  texto: "@cf/mistralai/mistral-small-3.1-24b-instruct",
+  vision: "@cf/mistralai/mistral-small-3.1-24b-instruct",
+  imagen: "@cf/black-forest-labs/flux-1-schnell"
+};
+const LIMITE_DIARIO = 400; // llamadas por hogar y día, para no pasar nunca del plan gratuito
+
+async function cloudflare(modelo, cuerpo) {
+  const cuenta = process.env.CF_CUENTA, token = process.env.CF_TOKEN;
+  if (!cuenta || !token) throw new HttpsError("failed-precondition", "Falta configurar Cloudflare (CF_CUENTA y CF_TOKEN)");
+  const r = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cuenta}/ai/run/${modelo}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify(cuerpo),
+    signal: AbortSignal.timeout(110000)
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.success === false) {
+    const msg = (j.errors || []).map((e) => e.message).join("; ") || `HTTP ${r.status}`;
+    if (r.status === 429 || /neuron|limit|quota/i.test(msg)) throw new HttpsError("resource-exhausted", "Se ha agotado la IA gratuita de hoy (se renueva a las 2:00). " + msg);
+    throw new HttpsError("internal", "Cloudflare: " + msg);
+  }
+  return j.result;
+}
+
+exports.ia = onCall({ enforceAppCheck: true, timeoutSeconds: 120, memory: "256MiB" }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Inicia sesión");
+  const u = await db.doc(`usuarios/${req.auth.uid}`).get();
+  const hogarId = u.data()?.hogarId;
+  if (!hogarId || !(await miembroDe(req.auth.uid, hogarId))) throw new HttpsError("permission-denied", "No perteneces a ningún hogar");
+
+  const dia = new Date().toISOString().slice(0, 10);
+  const uso = db.doc(`hogares/${hogarId}/uso/${dia}`);
+  const n = await db.runTransaction(async (t) => {
+    const v = ((await t.get(uso)).data()?.llamadas || 0) + 1;
+    t.set(uso, { llamadas: v }, { merge: true });
+    return v;
+  });
+  if (n > LIMITE_DIARIO) throw new HttpsError("resource-exhausted", "Hoy ya se ha usado mucho la IA. Mañana más.");
+
+  const { tipo, sistema = "", prompt = "", imagen = "", json = false } = req.data || {};
+  if (typeof prompt !== "string" || prompt.length > 40000) throw new HttpsError("invalid-argument", "Petición no válida");
+
+  if (tipo === "imagen") {
+    const res = await cloudflare(CF_MODELOS.imagen, { prompt: prompt.slice(0, 2000), steps: 6 });
+    return { imagen: res.image };
+  }
+  const mensajes = [];
+  if (sistema) mensajes.push({ role: "system", content: String(sistema).slice(0, 8000) });
+  if (tipo === "vision" && imagen) {
+    if (imagen.length > 6_000_000) throw new HttpsError("invalid-argument", "Imagen demasiado grande");
+    mensajes.push({ role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imagen}` } }] });
+  } else {
+    mensajes.push({ role: "user", content: prompt });
+  }
+  const cuerpo = { messages: mensajes, max_tokens: 2500, temperature: json ? 0.3 : 0.7 };
+  if (json) cuerpo.response_format = { type: "json_object" };
+  let res;
+  try { res = await cloudflare(tipo === "vision" ? CF_MODELOS.vision : CF_MODELOS.texto, cuerpo); }
+  catch (e) {
+    if (!json || e.code === "resource-exhausted") throw e;
+    delete cuerpo.response_format; // algunos modelos no aceptan el modo JSON: se pide en el texto
+    res = await cloudflare(tipo === "vision" ? CF_MODELOS.vision : CF_MODELOS.texto, cuerpo);
+  }
+  const texto = typeof res.response === "string" ? res.response : JSON.stringify(res.response ?? res);
+  return { texto };
+});
