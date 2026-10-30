@@ -64,7 +64,10 @@ if (!EN_VIVO) {
   await paso("Modo tablet activado", async () => {
     await t.evaluate(() => localStorage.setItem("modoTablet", "1"));
     await t.reload();
-    await t.locator("#nav").getByRole("button", { name: "Hoy" }).waitFor({ timeout: 20000 });
+    await t.getByText("¿Quién eres?").waitFor({ timeout: 20000 });
+    await captura(t, "tablet-quien-eres");
+    await t.locator(".quien-eres").getByRole("button", { name: "Rubén" }).click();
+    await t.getByText("Soy Rubén").waitFor();
   });
 
   await paso("Hoy: muestra los platos del día y la cocinera habitual", async () => {
@@ -106,11 +109,13 @@ if (!EN_VIVO) {
     await t.getByText("45 pts").waitFor({ timeout: 10000 });
   });
 
-  await paso("Recetas: la opción «Pedir a KeKoMeMos» está disponible", async () => {
+  await paso("Recetas: el asistente «Añadir receta» ofrece internet, IA y a mano", async () => {
     await t.locator("#nav").getByRole("button", { name: "Recetas" }).click();
-    await t.getByRole("button", { name: /Pedir a KeKoMeMos/ }).click();
-    await t.locator("#modal").getByRole("button", { name: "Fideos a la cazuela", exact: true }).click();
-    await captura(t, "tablet-pedir-receta");
+    await t.getByRole("button", { name: "+ Añadir receta" }).click();
+    await t.locator('#modal input[name="consulta"]').fill("Fideos a la cazuela");
+    await t.getByRole("button", { name: /Buscar la receta en internet/ }).waitFor();
+    await t.getByRole("button", { name: /Que la cree KeKoMeMos/ }).waitFor();
+    await captura(t, "tablet-anadir-receta");
     await t.getByRole("button", { name: "Cerrar" }).click();
     await t.locator("#nav").getByRole("button", { name: "Hoy" }).click();
   });
@@ -141,9 +146,11 @@ if (!EN_VIVO) {
 
   await paso("Menús: crear una receta nueva directamente en un día vacío", async () => {
     await t.locator(".hueco.vacio-hueco").first().click();
-    await t.getByRole("button", { name: /Crear con KeKoMeMos/ }).waitFor();
+    await t.getByRole("button", { name: /Receta nueva/ }).waitFor();
     await captura(t, "tablet-que-ponemos");
-    await t.getByRole("button", { name: "+ Escribir receta nueva" }).click();
+    await t.getByRole("button", { name: /Receta nueva/ }).click();
+    await t.locator('#modal input[name="consulta"]').fill("Gazpacho");
+    await t.getByRole("button", { name: "Escribirla yo" }).click();
     await t.getByText("Al guardar se añadirá al menú").waitFor();
     await t.locator('input[name="titulo"]').fill("Gazpacho");
     await t.locator('textarea[name="ingredientes"]').fill("1 kg tomate\n1 pepino\n1 diente ajo");
@@ -168,8 +175,11 @@ if (!EN_VIVO) {
 
   await paso("Recetas: crear una receta nueva", async () => {
     await t.locator("#nav").getByRole("button", { name: "Recetas" }).click();
-    await t.getByRole("button", { name: "+ Escribirla yo" }).click();
-    await t.locator('input[name="titulo"]').fill("Crema de calabaza");
+    await t.getByRole("button", { name: "+ Añadir receta" }).click();
+    await t.locator('#modal input[name="consulta"]').fill("Crema de calabaza");
+    await t.getByRole("button", { name: "Escribirla yo" }).click();
+    if ((await t.locator('input[name="titulo"]').inputValue()) !== "Crema de calabaza") throw new Error("el nombre no pasa al editor");
+    await t.locator('fieldset.tipos input[value="comida"]').uncheck();
     await t.locator('textarea[name="ingredientes"]').fill("1 kg calabaza\n1 cebolla\n200 ml nata para cocinar");
     await t.locator('textarea[name="pasos"]').fill("Pocha la cebolla.\nAñade la calabaza y cubre de agua.\nTritura con la nata.");
     await captura(t, "tablet-editor");
@@ -232,13 +242,16 @@ if (!EN_VIVO) {
 
   await paso("Móvil menor: el menú está oculto hasta resolver el reto", async () => {
     if (await m.locator("#nav").getByRole("button", { name: "Menús" }).count()) throw new Error("el menor ve la pestaña Semana");
-    await m.getByRole("button", { name: /Pregunta a KeKoMeMos/ }).first().waitFor();
-    await captura(m, "movil-menor-hoy");
-    await m.getByRole("button", { name: /Pregunta a KeKoMeMos/ }).first().click();
-    await resolverReto(m, "Hugo", "movil-menor-reto");
-    await captura(m, "movil-menor-menu-revelado");
-    await m.getByRole("button", { name: "¡Genial!" }).click();
-    await m.getByText("Fideos a la cazuela").first().waitFor({ timeout: 5000 });
+    await m.locator(".hero-titulo", { hasText: /QUÉKOmemos|QUÉCEnamos/ }).waitFor();
+    await m.locator(".hero-keko .reto-opciones").waitFor({ timeout: 30000 });
+    await captura(m, "movil-menor-quekomemos");
+    for (let i = 0; i < 8 && await m.locator(".hero-keko").count(); i++) {
+      const op = m.locator(".hero-keko .reto-opciones button:not([disabled])").first();
+      if (await op.count()) await op.click().catch(() => {});
+      await m.waitForTimeout(700);
+    }
+    await m.locator(".hero-keko").waitFor({ state: "detached", timeout: 5000 });
+    await m.getByText(/¡Bien, Hugo!/).waitFor({ timeout: 5000 });
     await captura(m, "movil-menor-menu-visible");
   });
 

@@ -15,6 +15,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-storage.js";
 import { getMessaging, getToken, isSupported } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-messaging.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-functions.js";
 import * as IA from "./asistente.js";
 
 // ---------- CONFIGURACIÓN ----------
@@ -38,6 +39,8 @@ const TEMAS = [
   { id: "diner", nombre: "Diner retro", colores: ["#FFF4E2", "#B00E28", "#0F6E6E"] },
   { id: "cielo", nombre: "Cielo", colores: ["#EEF2FA", "#2F5FC4", "#F5A524"] }
 ];
+const TIPOS_PLATO = [["comida", "Comida"], ["cena", "Cena"], ["postre", "Postre"], ["merienda", "Merienda"], ["desayuno", "Desayuno"], ["entrante", "Entrante"]];
+const MINUTOS_INACTIVIDAD = 20; // en la tablet, tras este tiempo sin uso vuelve a preguntar «¿Quién eres?»
 const CATEGORIAS = { favoritos: "Favoritos", quiero_probar: "Quiero probar", especiales: "Especiales" };
 const SUBCATEGORIAS = ["Fin de semana", "Navidad", "Cumpleaños", "Verano", "Otra ocasión"];
 const TAREAS = [
@@ -71,19 +74,25 @@ if (EMULADORES) {
   connectStorageEmulator(storage, "127.0.0.1", 9199);
 }
 IA.iniciarIA(app);
+const nube = getFunctions(app, "europe-west1");
+const leerWebs = httpsCallable(nube, "leerWebs", { timeout: 70000 });
+const guardarFotoWeb = httpsCallable(nube, "guardarFotoWeb", { timeout: 70000 });
 
 // ---------- ESTADO ----------
 const S = {
   user: null, hogarId: null, hogar: null, yo: null,
   miembros: [], recetas: [], menus: {}, despensa: [], avisos: [], tareasHoy: [],
+  activoId: null, ultimoUso: Date.now(), retoInline: null,
   vista: "hoy", param: null, semana: 0, mesOffset: 0, modoCal: "semana", asignarA: null, filtro: "todas", busqueda: "",
   intercambio: null, borrador: null, editorFoto: null,
   inicio: Date.now(), vistos: new Set(), cargado: new Set(), pendiente: false,
   desuscribir: []
 };
 const esTablet = () => localStorage.getItem("modoTablet") === "1";
-const esAdulto = () => S.yo?.rol === "adulto";
-const esMenor = () => S.yo?.rol === "menor";
+// Persona que usa la app ahora: en el móvil, la de la cuenta; en la tablet, la que elige «¿Quién eres?»
+const yoActivo = () => (esTablet() && miembro(S.activoId)) || S.yo;
+const esAdulto = () => yoActivo()?.rol === "adulto";
+const esMenor = () => yoActivo()?.rol === "menor";
 const esAdmin = () => S.hogar?.admin === S.user?.uid;
 
 // ---------- UTILIDADES ----------
@@ -96,7 +105,7 @@ const hoy = () => iso(new Date());
 const mes = () => hoy().slice(0, 7);
 const masDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const lunesDe = (d) => masDias(d, -((d.getDay() + 6) % 7));
-const comidaActual = () => (new Date().getHours() < 17 ? "comida" : "cena");
+const comidaActual = () => (new Date().getHours() < 16 ? "comida" : "cena");
 const fechaLarga = (d) => d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
 const diaCorto = (d) => d.toLocaleDateString("es-ES", { weekday: "short" }).replace(".", "");
 const normal = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -136,6 +145,7 @@ const ICONOS = {
   campana: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21h4"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   check: '<path d="M5 12l5 5L20 7"/>',
+  buscar: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
   chispa: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>'
 };
 const icono = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[n]}</svg>`;
@@ -367,11 +377,44 @@ async function fotoParaReceta(id, avisar = true) {
   }
 }
 
+function recuperarActivo() {
+  try {
+    const a = JSON.parse(sessionStorage.getItem("activo") || "null");
+    if (a && miembro(a.id) && Date.now() - a.ts < MINUTOS_INACTIVIDAD * 60000) { S.activoId = a.id; return true; }
+  } catch { /* nada */ }
+  return false;
+}
+function fijarActivo(id) {
+  S.activoId = id;
+  S.ultimoUso = Date.now();
+  S.retoInline = null;
+  try { sessionStorage.setItem("activo", JSON.stringify({ id, ts: Date.now() })); } catch { /* nada */ }
+}
+function preguntarQuienEres() {
+  S.activoId = null;
+  try { sessionStorage.removeItem("activo"); } catch { /* nada */ }
+  const orden = [...S.miembros].sort((a, b) => (a.rol === b.rol ? a.nombre.localeCompare(b.nombre) : a.rol === "adulto" ? -1 : 1));
+  abrirModal(`<div class="modal-cabecera"><h2 class="titulo">¿Quién eres?</h2></div>
+    <p class="suave" style="margin:0">Toca tu foto para entrar.</p>
+    <div class="selector-cocinero quien-eres">${orden.map((m) => `<button data-soy="${m.id}">${avatar(m, 96)}<span>${esc(m.nombre)}</span></button>`).join("")}</div>`, true);
+  $("#modal").dataset.fijo = "1";
+  $(".quien-eres").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-soy]");
+    if (!b) return;
+    delete $("#modal").dataset.fijo;
+    cerrarModal();
+    fijarActivo(b.dataset.soy);
+    S.vista = "hoy";
+    render();
+    notificar(`¡Hola, ${nombreDe(b.dataset.soy)}!`);
+  });
+}
+
 function arrancarApp() {
   $("#cargando").hidden = true;
   $("#pantalla-entrada").hidden = true;
   $("#app").hidden = false;
-  if (esMenor() && !esTablet()) S.vista = "hoy";
+  if (esTablet() && !recuperarActivo()) preguntarQuienEres();
   render();
   if (esAdulto() && !EMULADORES) setTimeout(rellenarFotos, 4000);
   if (!EMULADORES && "serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(console.error);
@@ -402,14 +445,14 @@ function render() {
   ).join("");
   const sinLeer = S.avisos.filter((a) => a.de !== S.user.uid && (a.para === "todos" || a.para === S.user.uid) && (a.creadoMs || 0) > Number(localStorage.getItem("avisosLeidos") || 0)).length;
   const titulos = { hoy: S.hogar?.nombre || "Hoy en casa", semana: "Planificador de menús", recetas: "Recetas", receta: "Receta", editor: S.param ? "Editar receta" : "Nueva receta", compra: "Lista de la compra", yo: "Mi perfil" };
-  const cocina = miembro(cocineraHoy());
+  const yo = yoActivo();
   $("#cabecera").innerHTML = `
     <div>
       <div class="fecha">${esc(fechaLarga(new Date()))}</div>
       <h1>${esc(titulos[S.vista] || "")}</h1>
     </div>
     <div class="cabecera-acciones">
-      ${S.vista === "hoy" && cocina ? `<button class="chip-cocinero" data-accion="cambiar-cocinera" ${esAdulto() ? "" : "disabled"} aria-label="Hoy cocina ${esc(cocina.nombre)}">${avatar(cocina, 38)}<span><span class="prefijo">Hoy cocina </span>${esc(cocina.nombre)}</span></button>` : ""}
+      ${yo ? `<button class="chip-cocinero" data-accion="quien-soy" aria-label="${esTablet() ? "Cambiar de persona" : "Mi perfil"}: ${esc(yo.nombre)}">${avatar(yo, 38)}<span><span class="prefijo">${esTablet() ? "Soy " : "Hola, "}</span>${esc(yo.nombre)}</span></button>` : ""}
       <button class="btn btn-icono" data-accion="bandeja" aria-label="Avisos">${icono("campana")}${sinLeer ? `<span class="contador">${sinLeer}</span>` : ""}</button>
     </div>`;
   const vistas = { hoy: vistaHoy, semana: vistaSemana, recetas: vistaRecetas, receta: vistaReceta, editor: vistaEditor, compra: vistaCompra, yo: vistaYo };
@@ -417,20 +460,50 @@ function render() {
 }
 
 // ---------- HOY ----------
+const claveReto = (tipo, persona = yoActivo()) => `reto-${persona?.id}-${hoy()}-${tipo}`;
+const retoResuelto = (tipo) => localStorage.getItem(claveReto(tipo)) === "1";
+const tieneTipo = (r, tipo) => !r.tipos?.length || r.tipos.includes(tipo);
+
+// Recetas más habituales para comida o cena (las más planificadas, luego favoritas)
+function habituales(tipo, n = 4) {
+  const cuenta = {};
+  Object.values(S.menus).forEach((m) => { if (m.recetaId) cuenta[m.recetaId] = (cuenta[m.recetaId] || 0) + (m.tipo === tipo ? 2 : 1); });
+  return S.recetas
+    .filter((r) => tieneTipo(r, tipo) && !(r.tipos?.length && r.tipos.every((t) => ["postre", "merienda", "desayuno"].includes(t))))
+    .map((r) => ({ r, p: (cuenta[r.id] || 0) + (r.veces || 0) + (r.categoria === "favoritos" ? 1.5 : 0) + Math.random() * 0.5 }))
+    .sort((a, b) => b.p - a.p).slice(0, n).map((x) => x.r);
+}
+function sugerenciasHTML(tipo) {
+  const lista = habituales(tipo);
+  if (!lista.length) return esAdulto() ? `<p class="suave" style="margin:0">Aún no hay recetas. Añade la primera desde Recetas.</p>` : "";
+  return `<div class="sugerencias">
+    <div class="etiqueta">${esAdulto() ? "Opciones habituales · toca para elegir" : "Opciones habituales"}</div>
+    <div class="sugerencias-lista">${lista.map((r) => `<button class="sugerencia" ${esAdulto() ? `data-accion="asignar-sugerencia" data-hueco="${hoy()}_${tipo}" data-id="${r.id}"` : `data-accion="ver-receta" data-id="${r.id}"`}>
+      <span class="foto">${fotoHTML(r)}</span><span>${esc(r.titulo)}</span></button>`).join("")}</div>
+  </div>`;
+}
+function lineaCocina() {
+  const c = miembro(cocineraHoy());
+  if (!c) return "";
+  return esAdulto()
+    ? `<button class="linea-cocina" data-accion="cambiar-cocinera">${avatar(c, 28)}<span>Hoy cocina ${esc(c.nombre)}</span><span class="suave">· cambiar</span></button>`
+    : `<div class="linea-cocina">${avatar(c, 28)}<span>Hoy cocina ${esc(c.nombre)}</span></div>`;
+}
+
 function tarjetaPlato(tipo, grande) {
   const m = S.menus[`${hoy()}_${tipo}`];
   const r = m && receta(m.recetaId);
   const titulo = r?.titulo || m?.titulo;
-  const oculto = esMenor() && localStorage.getItem("reto-" + hoy()) !== "1";
+  const oculto = esMenor() && !retoResuelto(tipo);
   const etiqueta = tipo === "comida" ? "Comida" : "Cena";
   if (!titulo) {
     return `<article class="tarjeta plato ${grande ? "" : "compacto"}">
-      <div class="foto">${grande ? "<span>Sin planificar</span>" : ""}${grande ? `<span class="etiqueta-flotante">${etiqueta.toUpperCase()}</span>` : ""}</div>
-      <div class="plato-cuerpo">
-        ${grande ? "" : `<div class="etiqueta">${etiqueta}</div>`}
-        <div class="plato-titulo">Sin planificar</div>
-        ${esAdulto() ? `<div class="fila"><button class="btn btn-primario" data-accion="elegir-hueco" data-hueco="${hoy()}_${tipo}">Elegir plato</button>
+      ${grande ? `<div class="plato-cuerpo"><span class="etiqueta">${etiqueta} · sin planificar</span>` : `<div class="plato-cuerpo"><div class="etiqueta">${etiqueta}</div>`}
+        <div class="plato-titulo">${esMenor() ? "Aún no está decidido" : "¿Qué hacemos?"}</div>
+        ${grande ? sugerenciasHTML(tipo) : ""}
+        ${esAdulto() ? `<div class="fila"><button class="btn btn-primario" data-accion="elegir-hueco" data-hueco="${hoy()}_${tipo}">${grande ? "Ver todas las recetas" : "Elegir plato"}</button>
         <button class="btn" data-accion="sorpresa" data-hueco="${hoy()}_${tipo}">${icono("chispa")}Sorpréndeme</button></div>` : ""}
+        ${grande ? lineaCocina() : ""}
       </div></article>`;
   }
   const meta = [r?.minutos ? `${r.minutos} min` : "", CATEGORIAS[r?.categoria] || "", r?.subcategoria || ""].filter(Boolean).join(" · ");
@@ -439,13 +512,45 @@ function tarjetaPlato(tipo, grande) {
     <div class="plato-cuerpo">
       ${grande ? "" : `<div class="etiqueta">${etiqueta}</div>`}
       <div class="${oculto ? "oculto-reto" : ""}"><div class="plato-titulo">${esc(titulo)}</div><div class="suave">${esc(meta)}</div></div>
-      ${oculto ? `<button class="btn btn-acento btn-grande" data-accion="reto">${icono("chispa")}¿Qué hay de ${tipo}? Pregunta a KeKoMeMos</button>` : `
+      ${oculto ? "" : `
       <div class="fila">
         ${r ? `<button class="btn" data-accion="ver-receta" data-id="${r.id}">Ver receta</button>` : ""}
         ${esAdulto() ? `<button class="btn" data-accion="elegir-hueco" data-hueco="${hoy()}_${tipo}">Cambiar</button>` : ""}
         ${r && esAdulto() && grande ? `<button class="btn btn-primario" data-accion="cocinar" data-id="${r.id}">${icono("mic")}Cocinar</button>` : ""}
       </div>`}
+      ${grande ? lineaCocina() : ""}
     </div></article>`;
+}
+
+// Pantalla grande para los menores: ¿QUÉKOmemos? / ¿QUÉCEnamos? con el juego debajo
+function heroReto() {
+  const tipo = comidaActual();
+  const persona = yoActivo();
+  if (!esMenor() || retoResuelto(tipo)) return "";
+  const titulo = tipo === "comida" ? "¿QUÉKOmemos?" : "¿QUÉCEnamos?";
+  const st = S.retoInline;
+  const valido = st && st.tipo === tipo && st.personaId === persona.id;
+  if (!valido || st.cargando) {
+    if (!valido) setTimeout(() => cargarRetoInline(tipo), 0);
+    return `<section class="hero-keko"><h2 class="hero-titulo">${titulo}</h2><p>KeKoMeMos está pensando un reto para ti, ${esc(persona.nombre)}…</p><div class="cargando-plato" aria-hidden="true"></div></section>`;
+  }
+  const r = st.reto;
+  return `<section class="hero-keko" aria-live="polite">
+    <h2 class="hero-titulo">${titulo}</h2>
+    <p>${esc(persona.nombre)}, acierta y descubre ${tipo === "comida" ? "la comida" : "la cena"} de hoy <b>(+${PUNTOS_RETO} puntos)</b></p>
+    <div class="reto-pregunta">${esc(r.pregunta)}</div>
+    <div class="reto-opciones">${r.opciones.map((o, i) => `<button class="btn ${st.fallos?.includes(i) ? "mal" : ""}" data-accion="responder-reto" data-i="${i}" ${st.fallos?.includes(i) ? "disabled" : ""}>${esc(o)}</button>`).join("")}</div>
+    ${st.fallos?.length ? `<p class="suave" style="margin:0">¡Casi! Prueba otra vez${st.fallos.length >= 2 ? ` o <button class="btn-enlace" data-accion="otro-reto">pide otro reto</button>` : ""}.</p>` : ""}
+  </section>`;
+}
+async function cargarRetoInline(tipo) {
+  const persona = yoActivo();
+  if (S.retoInline?.cargando) return;
+  S.retoInline = { tipo, personaId: persona.id, cargando: true };
+  const reto = await IA.generarAcertijo(edad(persona.nacimiento) ?? 16);
+  if (S.retoInline?.personaId !== persona.id) return;
+  S.retoInline = { tipo, personaId: persona.id, reto, fallos: [] };
+  if (S.vista === "hoy") render();
 }
 
 function panelAvisos() {
@@ -501,11 +606,13 @@ function panelRanking(completo = false) {
 }
 
 function vistaHoy() {
+  const actual = comidaActual(), otra = actual === "comida" ? "cena" : "comida";
+  const hero = heroReto();
   return `<div class="hoy">
     <div class="pila">
-      ${bannerPregunta()}
-      ${tarjetaPlato("comida", comidaActual() === "comida")}
-      ${tarjetaPlato("cena", comidaActual() === "cena")}
+      ${hero || bannerPregunta()}
+      ${tarjetaPlato(actual, true)}
+      ${tarjetaPlato(otra, false)}
       ${esAdulto() ? botonCocinarAhora() : ""}
       ${panelTareas()}
     </div>
@@ -604,26 +711,27 @@ function vistaMes() {
 
 // ---------- RECETAS ----------
 function vistaRecetas() {
-  const filtros = [["todas", "Todas"], ...Object.entries(CATEGORIAS)];
+  const filtros = [["todas", "Todas"], ...TIPOS_PLATO, ...Object.entries(CATEGORIAS)];
   const b = normal(S.busqueda);
   const lista = S.recetas.filter((r) =>
-    (S.filtro === "todas" || r.categoria === S.filtro) && (!b || normal(r.titulo).includes(b) || (r.ingredientes || []).some((i) => normal(i.nombre).includes(b))));
+    (S.filtro === "todas" || r.categoria === S.filtro || (r.tipos || []).includes(S.filtro)) && (!b || normal(r.titulo).includes(b) || (r.ingredientes || []).some((i) => normal(i.nombre).includes(b))));
   return `<div class="pila">
     <div class="fila">
       <label class="oculto-visual" for="buscar">Buscar receta</label>
       <input id="buscar" class="entrada-texto crece" placeholder="Buscar por nombre o ingrediente" value="${esc(S.busqueda)}" data-input="buscar">
-      ${esAdulto() ? `<button class="btn btn-primario" data-accion="pedir-receta">${icono("chispa")}Pedir a KeKoMeMos</button><button class="btn" data-accion="importar">Importar texto o foto</button><button class="btn" data-accion="nueva-receta">+ Escribirla yo</button>` : ""}
+      ${esAdulto() ? `<button class="btn btn-primario" data-accion="anadir-receta">+ Añadir receta</button>` : ""}
     </div>
     <div class="chips-scroll">${filtros.map(([id, t]) => `<button class="chip" data-accion="filtro" data-filtro="${id}" aria-pressed="${S.filtro === id}">${esc(t)}</button>`).join("")}</div>
     ${lista.length ? `<div class="rejilla-recetas">${lista.map((r) => `
       <button class="tarjeta receta-tarjeta" data-accion="ver-receta" data-id="${r.id}">
         <div class="foto">${fotoHTML(r)}</div>
-        <div class="info"><strong>${esc(r.titulo)}</strong><span class="suave" style="font-size:13px">${esc([CATEGORIAS[r.categoria], r.subcategoria, r.minutos ? r.minutos + " min" : ""].filter(Boolean).join(" · "))}</span></div>
+        <div class="info"><strong>${esc(r.titulo)}</strong><span class="suave" style="font-size:13px">${esc([nombresTipos(r), r.minutos ? r.minutos + " min" : ""].filter(Boolean).join(" · "))}</span></div>
       </button>`).join("")}</div>`
       : `<div class="vacio">${S.recetas.length ? "Nada coincide con la búsqueda." : "Aún no hay recetas. Crea la primera o impórtala desde un texto o una foto."}</div>`}
   </div>`;
 }
 
+const nombresTipos = (r) => (r.tipos || []).map((t) => TIPOS_PLATO.find(([id]) => id === t)?.[1]).filter(Boolean).join(", ");
 function vistaReceta() {
   const r = receta(S.param);
   if (!r) return `<div class="vacio">Receta no encontrada.</div>`;
@@ -645,12 +753,13 @@ function vistaReceta() {
       </div>
       <div class="pila">
         <div>
-          <div class="etiqueta">${esc([CATEGORIAS[r.categoria], r.subcategoria].filter(Boolean).join(" · "))}</div>
+          <div class="etiqueta">${esc([nombresTipos(r), CATEGORIAS[r.categoria], r.subcategoria].filter(Boolean).join(" · "))}</div>
           <h2 class="titulo">${esc(r.titulo)}</h2>
           <div class="suave">${esc([r.minutos ? r.minutos + " min" : "", r.raciones ? r.raciones + " raciones" : ""].filter(Boolean).join(" · "))}</div>
         </div>
         <section class="tarjeta seccion"><h3 class="h2" style="margin-bottom:8px">Ingredientes</h3><ul class="lista">${ing || '<li class="suave">Sin ingredientes</li>'}</ul></section>
         <section class="tarjeta seccion"><h3 class="h2" style="margin-bottom:8px">Pasos</h3><ol class="pasos">${(r.pasos || []).map((p) => `<li>${esc(p)}</li>`).join("") || '<li class="suave">Sin pasos</li>'}</ol></section>
+        ${/^https?:\/\//.test(r.fuente || "") ? `<a href="${esc(r.fuente)}" target="_blank" rel="noopener noreferrer">Ver la receta original (${esc(new URL(r.fuente).hostname.replace(/^www\./, ""))})</a>` : ""}
         ${esAdulto() ? `<button class="btn btn-peligro" data-accion="borrar-receta" data-id="${r.id}">Eliminar receta</button>` : ""}
       </div>
     </div>
@@ -672,6 +781,10 @@ function leerIngredientes(texto) {
   });
 }
 
+function tiposPorDefecto() {
+  const t = S.asignarA?.split("_")[1];
+  return t ? [t] : ["comida", "cena"];
+}
 function vistaEditor() {
   const r = S.borrador || receta(S.param) || { categoria: "favoritos" };
   const foto = S.editorFoto?.url || r.foto;
@@ -683,13 +796,17 @@ function vistaEditor() {
       <div class="pila">
         <div class="foto" id="editor-foto" style="aspect-ratio:4/3;border-radius:var(--radio)">${foto ? `<img src="${esc(foto)}" alt="">` : "<span>Sin foto</span>"}</div>
         <div class="fila">
+          <button type="button" class="btn btn-primario crece" data-accion="buscar-fotos">${icono("buscar")}Buscar fotos en internet</button>
           <label class="btn crece">Subir foto<input type="file" accept="image/*" data-input="foto-receta" hidden></label>
-          <button type="button" class="btn crece" data-accion="generar-foto">${icono("chispa")}Generar con Gemini</button>
+          <button type="button" class="btn crece" data-accion="generar-foto">${icono("chispa")}Crear con IA</button>
         </div>
-        <small class="suave">Tu foto siempre tiene prioridad sobre la generada.</small>
       </div>
       <div class="pila">
         <label class="campo">Nombre <input name="titulo" required value="${esc(r.titulo || "")}"></label>
+        <fieldset class="campo tipos"><legend>Es para…</legend>
+          <div class="chips">${TIPOS_PLATO.map(([id, t]) => `<label class="chip"><input type="checkbox" name="tipos" value="${id}" ${(r.tipos || tiposPorDefecto()).includes(id) ? "checked" : ""}> ${t}</label>`).join("")}</div>
+        </fieldset>
+        <input type="hidden" name="fuente" value="${esc(r.fuente || "")}">
         <div class="fila">
           <label class="campo crece">Categoría
             <select name="categoria">${Object.entries(CATEGORIAS).map(([id, t]) => `<option value="${id}" ${r.categoria === id ? "selected" : ""}>${t}</option>`).join("")}</select></label>
@@ -743,7 +860,7 @@ function vistaCompra() {
 
 // ---------- YO ----------
 function vistaYo() {
-  const yo = S.yo;
+  const yo = yoActivo();
   const temaActual = (esTablet() && localStorage.getItem("temaTablet")) || yo.tema;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
@@ -774,7 +891,8 @@ function vistaYo() {
       </section>
       <section class="tarjeta seccion pila">
         <h2 class="h2">Este dispositivo</h2>
-        <label class="fila"><input type="checkbox" data-input="modo-tablet" ${esTablet() ? "checked" : ""} style="width:24px;height:24px"> Es la tablet de la cocina</label>
+        <label class="fila"><input type="checkbox" data-input="modo-tablet" ${esTablet() ? "checked" : ""} style="width:24px;height:24px"> Es la tablet de la cocina (pregunta «¿Quién eres?» al abrir)</label>
+        ${esTablet() ? `<button class="btn" data-accion="cambiar-persona">Cambiar de persona</button>` : ""}
         <button class="btn btn-linea" data-accion="salir">Cerrar sesión</button>
       </section>
     </div>
@@ -836,10 +954,12 @@ async function registrarTarea(tareaId, uid) {
 }
 async function asignarMenu(huecoId, r) {
   const [fecha, tipo] = huecoId.split("_");
+  updateDoc(ref$("recetas", r.id), { veces: increment(1) }).catch(() => {});
   await setDoc(ref$("menus", huecoId), { fecha, tipo, recetaId: r.id, titulo: r.titulo });
 }
 async function enviarAviso(texto, tipo = "texto", para = "todos", extra = {}) {
-  await addDoc(col$("avisos"), { texto, tipo, para, de: S.user.uid, deNombre: S.yo.nombre, creadoMs: Date.now(), ts: serverTimestamp(), ...extra });
+  const yo = yoActivo();
+  await addDoc(col$("avisos"), { texto, tipo, para, de: S.user.uid, quien: yo.id, deNombre: yo.nombre, creadoMs: Date.now(), ts: serverTimestamp(), ...extra });
 }
 async function anadirFaltan(nombres) {
   let n = 0;
@@ -883,9 +1003,9 @@ async function responderAviso(id, valor) {
   if (!a) return;
   if (valor === "mesa-yo") {
     if (a.hechoPor) return notificar(`${nombreDe(a.hechoPor)} ya se ha ofrecido`);
-    await updateDoc(ref$("avisos", id), { hechoPor: S.user.uid });
-    await registrarTarea("poner_mesa", S.user.uid);
-    return enviarAviso(`${S.yo.nombre} pone la mesa`, "respuesta", a.de);
+    await updateDoc(ref$("avisos", id), { hechoPor: yoActivo().id });
+    await registrarTarea("poner_mesa", yoActivo().id);
+    return enviarAviso(`${yoActivo().nombre} pone la mesa`, "respuesta", a.de);
   }
   await enviarAviso(valor, "respuesta", a.de);
   notificar("Respuesta enviada");
@@ -903,12 +1023,45 @@ async function activarNotificaciones() {
   notificar("¡Notificaciones activadas!");
 }
 
+// ---------- BÚSQUEDA EN INTERNET ----------
+async function buscarPaginas(consulta) {
+  const { enlaces, sugerencias } = await IA.buscarEnInternet(consulta);
+  if (!enlaces.length) return { paginas: [], sugerencias };
+  const res = await leerWebs({ urls: enlaces.map((e) => e.uri) });
+  const paginas = (res.data?.paginas || []).filter((p) => p.imagenes?.length || p.receta);
+  paginas.sort((a, b) => (b.receta ? 1 : 0) - (a.receta ? 1 : 0));
+  return { paginas, sugerencias };
+}
+// Google exige mostrar sus «sugerencias de búsqueda» junto a resultados basados en su buscador
+function pintarSugerencias(html) {
+  const caja = $(".google-sugerencias");
+  if (!caja || !html) return;
+  caja.attachShadow({ mode: "open" }).innerHTML = html;
+}
+async function ponerFotoWeb(url, avisar) {
+  const caja = $("#editor-foto");
+  if (caja) caja.innerHTML = `<img src="${esc(url)}" alt="" referrerpolicy="no-referrer"><span class="cargando-texto">Guardando foto…</span>`;
+  try {
+    const res = await guardarFotoWeb({ url, hogarId: S.hogarId });
+    S.editorFoto = { url: res.data.url, remota: true };
+    const c2 = $("#editor-foto");
+    if (c2) c2.innerHTML = `<img src="${esc(res.data.url)}" alt="">`;
+    if (avisar) notificar("Foto lista");
+  } catch (e) {
+    console.error(e);
+    notificar("No se ha podido guardar esa foto: " + (e.message || e.code) + ". Prueba con otra.");
+    const c3 = $("#editor-foto");
+    if (c3) c3.innerHTML = S.editorFoto?.url ? `<img src="${esc(S.editorFoto.url)}" alt="">` : "<span>Sin foto</span>";
+  }
+}
+
 // ---------- MODALES ----------
 function modalElegirReceta(titulo, alElegir, huecoId = null) {
   const pintar = (filtro = "") => {
     const b = normal(filtro);
     const grupos = Object.entries(CATEGORIAS).map(([id, t]) => {
-      const rs = S.recetas.filter((r) => r.categoria === id && (!b || normal(r.titulo).includes(b)));
+      const tipoH = huecoId?.split("_")[1];
+      const rs = S.recetas.filter((r) => r.categoria === id && (!b || normal(r.titulo).includes(b)) && (!tipoH || b || tieneTipo(r, tipoH)));
       return rs.length ? `<h3 class="h2" style="margin-top:6px">${t}</h3><ul class="lista">${rs.map((r) => `<li><button class="btn crece" style="justify-content:flex-start" data-elegir="${r.id}">${esc(r.titulo)}${r.subcategoria ? ` <span class="suave">· ${esc(r.subcategoria)}</span>` : ""}</button></li>`).join("")}</ul>` : "";
     }).join("");
     $("#lista-elegir").innerHTML = grupos || `<p class="vacio">No hay recetas${b ? " con ese nombre" : ""}.</p>`;
@@ -918,8 +1071,7 @@ function modalElegirReceta(titulo, alElegir, huecoId = null) {
   abrirModal(`${cabeceraModal(titulo)}
     ${sub}
     ${huecoId ? `<div class="fila">
-      <button class="btn btn-primario crece" data-accion="pedir-receta" data-hueco="${huecoId}">${icono("chispa")}Crear con KeKoMeMos</button>
-      <button class="btn crece" data-accion="nueva-receta" data-hueco="${huecoId}">+ Escribir receta nueva</button>
+      <button class="btn btn-primario crece" data-accion="anadir-receta" data-hueco="${huecoId}">+ Receta nueva (internet, IA o a mano)</button>
     </div>
     <h3 class="h2" style="margin-top:4px">…o elegir una receta existente</h3>` : ""}
     <input class="entrada-texto" id="filtro-elegir" placeholder="Buscar receta" autocomplete="off">
@@ -933,7 +1085,7 @@ function modalElegirReceta(titulo, alElegir, huecoId = null) {
 }
 
 // Reto del menú: KeKoMeMos pone un acertijo y, al acertar, desvela la comida
-async function modalReto(persona = S.yo) {
+async function modalReto(persona = yoActivo()) {
   const e = edad(persona.nacimiento) ?? 16;
   abrirModal(`${cabeceraModal("Pregunta a KeKoMeMos")}
     <p class="suave">${esc(persona.nombre)}, ¿quieres saber qué hay de comer? Primero, un reto…</p>
@@ -948,10 +1100,9 @@ async function modalReto(persona = S.yo) {
     const b = ev.target.closest("[data-respuesta]");
     if (!b || b.disabled) return;
     if (String(b.dataset.respuesta) === String(r.correcta)) {
-      const clave = `reto-${persona.id}-${hoy()}`;
+      const clave = claveReto(comidaActual(), persona);
       const primera = localStorage.getItem(clave) !== "1";
       localStorage.setItem(clave, "1");
-      if (persona.id === S.user.uid) localStorage.setItem("reto-" + hoy(), "1");
       if (primera) await sumarPuntos(persona.id, PUNTOS_RETO).catch(console.error);
       revelarMenu(persona, r.explicacion, primera);
       render();
@@ -986,10 +1137,7 @@ function elegirPeque() {
   });
 }
 function bannerPregunta() {
-  if (esMenor()) {
-    if (localStorage.getItem("reto-" + hoy()) === "1") return "";
-    return `<button class="pregunta-keko" data-accion="reto">${icono("chispa")}<span><b>¿Qué hay de comer hoy?</b><small>Pregunta a KeKoMeMos y supera su reto</small></span></button>`;
-  }
+  if (esMenor()) return "";
   if (esTablet() && S.miembros.some((m) => m.rol === "menor")) {
     return `<button class="pregunta-keko" data-accion="reto-tablet">${icono("chispa")}<span><b>¿Qué hay de comer?</b><small>Los chicos preguntan a KeKoMeMos</small></span></button>`;
   }
@@ -998,7 +1146,7 @@ function bannerPregunta() {
 
 function modalTarea(tareaId) {
   const t = TAREAS.find((x) => x.id === tareaId);
-  const personas = esMenor() ? [S.yo] : S.miembros;
+  const personas = esMenor() ? [yoActivo()] : S.miembros;
   abrirModal(`${cabeceraModal(`¿Quién? · ${t.nombre}`)}
     <p class="suave">Suma ${t.puntos} puntos a quien lo haya hecho.</p>
     <div class="selector-cocinero">${personas.map((m) => `<button data-quien="${m.id}">${avatar(m, 84)}<span>${esc(m.nombre)}</span></button>`).join("")}</div>`);
@@ -1076,7 +1224,7 @@ const ACCIONES = {
       await updateDoc(doc(db, "hogares", S.hogarId), { cocinaHoy: uid === S.hogar.cocineraHabitual ? deleteField() : { fecha: hoy(), uid } });
     });
   },
-  reto: () => modalReto(S.yo),
+  reto: () => modalReto(yoActivo()),
   "reto-tablet": elegirPeque,
   "ver-receta": (d) => { if (!d.id) return ACCIONES.ir({ vista: "recetas" }); S.vista = "receta"; S.param = d.id; render(); window.scrollTo(0, 0); },
   "nueva-receta": (d) => { cerrarModal(); S.asignarA = d.hueco || null; S.vista = "editor"; S.param = null; S.borrador = null; S.editorFoto = null; render(); window.scrollTo(0, 0); },
@@ -1104,13 +1252,7 @@ const ACCIONES = {
   "elegir-hueco": (d) => modalElegirReceta("Elegir plato", (r) => asignarMenu(d.hueco, r), d.hueco),
   "modo-cal": (d) => { S.modoCal = d.modo; S.intercambio = null; render(); },
   mes: (d) => { S.mesOffset += Number(d.delta); render(); },
-  "nueva-receta-plan": () => abrirModal(`${cabeceraModal("Nueva receta")}
-    <div class="pila">
-      <button class="btn btn-primario btn-grande" data-accion="pedir-receta">${icono("chispa")}Crear con KeKoMeMos</button>
-      <button class="btn btn-grande" data-accion="importar">Importar de un texto o una foto</button>
-      <button class="btn btn-grande" data-accion="nueva-receta">+ Escribirla yo</button>
-      <p class="suave" style="margin:0">Para ponerla directamente en un día, toca ese día en el calendario.</p>
-    </div>`),
+  "nueva-receta-plan": () => ACCIONES["anadir-receta"]({}),
   dia: (d) => {
     const f = d.fecha;
     if (S.intercambio) {
@@ -1207,6 +1349,84 @@ const ACCIONES = {
       <small class="suave">KeKoMeMos (Gemini) escribe la receta y crea una foto del plato. Podrás revisarla antes de guardar.</small>
     </form>`); },
   "foto-receta": (d) => fotoParaReceta(d.id),
+  "anadir-receta": (d) => {
+    S.asignarA = d.hueco || null;
+    let sub = "";
+    if (d.hueco) { const [f, t] = d.hueco.split("_"); sub = `<p class="suave" style="margin:0">Para ${esc(fechaLarga(deIso(f)))} · ${t}</p>`; }
+    abrirModal(`${cabeceraModal("Añadir receta")}${sub}
+      <form class="pila" data-form="anadir-receta">
+        <label class="campo">¿Qué receta?
+          <input name="consulta" required autocomplete="off" placeholder="Fideos a la cazuela, lasaña de verduras…"></label>
+        <button class="btn btn-primario btn-grande" name="modo" value="web">${icono("buscar")}Buscar la receta en internet</button>
+        <button class="btn btn-grande" name="modo" value="ia">${icono("chispa")}Que la cree KeKoMeMos</button>
+        <button class="btn btn-grande" name="modo" value="manual">Escribirla yo</button>
+        <button type="button" class="btn-enlace" data-accion="importar" ${d.hueco ? `data-hueco="${d.hueco}"` : ""}>…o importar de un texto o una foto (libro, revista)</button>
+      </form>`);
+  },
+  "elegir-web": async (d) => {
+    const pag = S.webResultados?.[Number(d.i)];
+    if (!pag) return;
+    abrirModal(`${cabeceraModal("Importando receta")}<p>Leyendo la receta de ${esc(pag.sitio)}…</p><div class="cargando-plato" aria-hidden="true"></div>`);
+    try {
+      let r;
+      if (pag.receta?.ingredientes?.length) {
+        r = { titulo: pag.receta.titulo, minutos: pag.receta.minutos, raciones: pag.receta.raciones,
+          ingredientes: leerIngredientes(pag.receta.ingredientes.join("\n")), pasos: pag.receta.pasos };
+      } else {
+        r = await IA.importarReceta({ texto: `${pag.titulo}\n\n${pag.texto || ""}` });
+      }
+      S.borrador = { ...r, tipos: r.tipos?.length ? r.tipos : tiposPorDefecto(), categoria: "quiero_probar", fuente: pag.url };
+      S.vista = "editor"; S.param = null; S.editorFoto = null;
+      cerrarModal();
+      render();
+      window.scrollTo(0, 0);
+      if (pag.imagenes?.[0]) await ponerFotoWeb(pag.imagenes[0], false);
+      notificar("Revisa la receta y guárdala");
+    } catch (e) { console.error(e); notificar(errorIA(e, "No se ha podido importar la receta")); cerrarModal(); }
+  },
+  "buscar-fotos": async (_, el) => {
+    const titulo = el.closest("form")?.titulo?.value.trim();
+    if (!titulo) return notificar("Escribe primero el nombre del plato.");
+    abrirModal(`${cabeceraModal("Fotos de " + titulo)}<p>Buscando fotos en internet…</p><div class="cargando-plato" aria-hidden="true"></div>`, true);
+    try {
+      const { paginas, sugerencias } = await buscarPaginas(titulo);
+      const fotos = [...new Set(paginas.flatMap((p) => p.imagenes || []))].slice(0, 16);
+      if (!fotos.length) throw new Error("Sin fotos");
+      abrirModal(`${cabeceraModal("Elige una foto")}
+        <div class="rejilla-fotos">${fotos.map((u) => `<button class="foto-web" data-accion="elegir-foto" data-url="${esc(u)}"><img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.remove()"></button>`).join("")}</div>
+        <div class="google-sugerencias"></div>`, true);
+      pintarSugerencias(sugerencias);
+    } catch (e) { console.error(e); notificar(errorIA(e, "No se han encontrado fotos")); cerrarModal(); }
+  },
+  "elegir-foto": async (d) => { cerrarModal(); await ponerFotoWeb(d.url, true); },
+  "asignar-sugerencia": async (d) => {
+    const r = receta(d.id);
+    if (!r) return;
+    await asignarMenu(d.hueco, r);
+    notificar(`${r.titulo} para ${d.hueco.endsWith("comida") ? "comer" : "cenar"}`);
+  },
+  "quien-soy": () => (esTablet() ? preguntarQuienEres() : ACCIONES.ir({ vista: "yo" })),
+  "cambiar-persona": () => preguntarQuienEres(),
+  "responder-reto": async (d) => {
+    const st = S.retoInline;
+    if (!st?.reto) return;
+    const i = Number(d.i);
+    if (String(st.reto.opciones[i]) === String(st.reto.correcta)) {
+      const persona = yoActivo();
+      const clave = claveReto(st.tipo, persona);
+      const primera = localStorage.getItem(clave) !== "1";
+      localStorage.setItem(clave, "1");
+      S.retoInline = null;
+      if (primera) await sumarPuntos(persona.id, PUNTOS_RETO).catch(console.error);
+      const m = S.menus[`${hoy()}_${st.tipo}`];
+      notificar(`¡Bien, ${persona.nombre}! ${m ? `Hoy toca ${m.titulo}` : "Aún no está decidido"}${primera ? ` · +${PUNTOS_RETO} puntos` : ""}`);
+      render();
+    } else {
+      st.fallos = [...(st.fallos || []), i];
+      render();
+    }
+  },
+  "otro-reto": () => { S.retoInline = null; render(); },
   "fotos-pendientes": async () => {
     const n = S.recetas.filter((r) => !r.foto).length;
     if (!n) return notificar("Todas las recetas tienen foto.");
@@ -1304,17 +1524,48 @@ const FORMS = {
     form.nombre.focus();
   },
   async nombre(f) {
-    await updateDoc(ref$("miembros", S.user.uid), { nombre: f.get("nombre").trim() });
+    await updateDoc(ref$("miembros", yoActivo().id), { nombre: f.get("nombre").trim() });
     notificar("Nombre guardado");
+  },
+  async "anadir-receta"(f, form, boton) {
+    const consulta = String(f.get("consulta") || "").trim();
+    const modo = boton?.value || "web";
+    if (!consulta) return;
+    if (modo === "manual") {
+      cerrarModal();
+      S.borrador = { titulo: consulta, categoria: "favoritos", tipos: tiposPorDefecto() };
+      S.vista = "editor"; S.param = null; S.editorFoto = null;
+      render(); window.scrollTo(0, 0);
+      return;
+    }
+    if (modo === "ia") {
+      const fd = new FormData(); fd.set("pedido", consulta); fd.set("categoria", "quiero_probar");
+      return FORMS["pedir-receta"](fd, form);
+    }
+    abrirModal(`${cabeceraModal("Buscando «" + consulta + "»")}<p>Buscando recetas en Google…</p><div class="cargando-plato" aria-hidden="true"></div>`, true);
+    try {
+      const { paginas, sugerencias } = await buscarPaginas(consulta);
+      S.webResultados = paginas;
+      if (!paginas.length) throw new Error("Sin resultados");
+      abrirModal(`${cabeceraModal("Recetas encontradas")}
+        <p class="suave" style="margin:0">Elige una: se copiarán los ingredientes, los pasos y la foto. Podrás revisarla antes de guardar.</p>
+        <div class="resultados-web">${paginas.map((p, i) => `<button class="resultado-web" data-accion="elegir-web" data-i="${i}">
+          <span class="foto">${p.imagenes?.[0] ? `<img src="${esc(p.imagenes[0])}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}</span>
+          <span class="info"><b>${esc(p.receta?.titulo || p.titulo || p.sitio)}</b><small>${esc(p.sitio)}${p.receta?.ingredientes?.length ? ` · ${p.receta.ingredientes.length} ingredientes` : ""}</small></span>
+        </button>`).join("")}</div>
+        <div class="google-sugerencias"></div>`, true);
+      pintarSugerencias(sugerencias);
+    } catch (e) { console.error(e); notificar(errorIA(e, "No se han encontrado recetas")); cerrarModal(); }
   },
   async "pedir-receta"(f, form) {
     const boton = form.querySelector("button.btn-primario");
-    boton.disabled = true; boton.textContent = "KeKoMeMos está escribiendo la receta…";
+    form.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    boton.textContent = "KeKoMeMos está escribiendo la receta…";
     try {
       const r = await IA.crearReceta(String(f.get("pedido")).trim());
       cerrarModal();
       S.vista = "editor"; S.param = null; S.editorFoto = null;
-      S.borrador = { ...r, categoria: f.get("categoria") || "quiero_probar" };
+      S.borrador = { ...r, tipos: r.tipos?.length ? r.tipos : tiposPorDefecto(), categoria: f.get("categoria") || "quiero_probar" };
       render();
       notificar("Receta lista. Ahora preparo la foto…");
       try {
@@ -1328,7 +1579,8 @@ const FORMS = {
     } catch (e) {
       console.error(e);
       notificar(errorIA(e, "No se ha podido crear la receta"));
-      boton.disabled = false; boton.innerHTML = `${icono("chispa")}Crear receta con foto`;
+      form.querySelectorAll("button").forEach((b) => { b.disabled = false; });
+      boton.innerHTML = `${icono("chispa")}Volver a intentarlo`;
     }
   },
   async importar(f) {
@@ -1362,10 +1614,15 @@ const FORMS = {
         minutos: Number(f.get("minutos")) || null,
         raciones: Number(f.get("raciones")) || null,
         ingredientes: leerIngredientes(f.get("ingredientes")),
+        tipos: f.getAll("tipos"),
+        fuente: f.get("fuente") || "",
         pasos: String(f.get("pasos")).split("\n").map((p) => p.trim().replace(/^\d+[.)-]\s*/, "")).filter(Boolean),
         actualizado: serverTimestamp()
       };
-      if (S.editorFoto?.blob) {
+      if (S.editorFoto?.remota) {
+        datos.foto = S.editorFoto.url;
+        datos.fotoGenerada = false;
+      } else if (S.editorFoto?.blob) {
         datos.foto = await subirImagen(`hogares/${S.hogarId}/recetas/${id}-${Date.now()}.jpg`, S.editorFoto.blob);
         datos.fotoGenerada = !!S.editorFoto.generada;
       }
@@ -1392,7 +1649,9 @@ const FORMS = {
 };
 
 document.addEventListener("click", (e) => {
-  if (e.target.id === "modal") return cerrarModal();
+  S.ultimoUso = Date.now();
+  if (esTablet() && S.activoId) { try { sessionStorage.setItem("activo", JSON.stringify({ id: S.activoId, ts: Date.now() })); } catch { /* nada */ } }
+  if (e.target.id === "modal") return $("#modal").dataset.fijo ? null : cerrarModal();
   const ej = e.target.closest("[data-ejemplo]");
   if (ej) { const t = ej.closest("form").pedido; t.value = ej.dataset.ejemplo; t.focus(); return; }
   const el = e.target.closest("[data-accion]");
@@ -1405,7 +1664,7 @@ document.addEventListener("submit", (e) => {
   if (!form) return;
   e.preventDefault();
   const f = FORMS[form.dataset.form];
-  if (f) Promise.resolve(f(new FormData(form), form)).catch((err) => { console.error(err); notificar("Algo ha fallado: " + (err.code || err.message)); });
+  if (f) Promise.resolve(f(new FormData(form), form, e.submitter)).catch((err) => { console.error(err); notificar("Algo ha fallado: " + (err.code || err.message)); });
 });
 document.addEventListener("input", (e) => {
   if (e.target.dataset.input === "buscar") {
@@ -1425,15 +1684,26 @@ document.addEventListener("change", async (e) => {
     }
     if (tipo === "foto-perfil" && t.files[0]) {
       notificar("Subiendo foto…");
-      const url = await subirImagen(`hogares/${S.hogarId}/avatares/${S.user.uid}-${Date.now()}.jpg`, await comprimir(t.files[0], 400));
-      await updateDoc(ref$("miembros", S.user.uid), { foto: url });
+      const id = yoActivo().id;
+      const url = await subirImagen(`hogares/${S.hogarId}/avatares/${id}-${Date.now()}.jpg`, await comprimir(t.files[0], 400));
+      await updateDoc(ref$("miembros", id), { foto: url });
     }
-    if (tipo === "modo-tablet") { localStorage.setItem("modoTablet", t.checked ? "1" : "0"); aplicarTema(); render(); }
+    if (tipo === "modo-tablet") {
+      localStorage.setItem("modoTablet", t.checked ? "1" : "0");
+      aplicarTema();
+      if (t.checked) fijarActivo(S.user.uid);
+      render();
+    }
     if (tipo === "cocinera-habitual") { await updateDoc(doc(db, "hogares", S.hogarId), { cocineraHabitual: t.value, cocinaHoy: deleteField() }); notificar("Guardado"); }
     if (tipo === "rol") { await updateDoc(ref$("miembros", t.dataset.id), { rol: t.value }); notificar("Perfil actualizado"); }
   } catch (err) { console.error(err); notificar("No se pudo guardar: " + (err.code || err.message)); }
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidden) cerrarModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#modal").hidden && !$("#modal").dataset.fijo) cerrarModal(); });
+// En la tablet, tras un rato sin uso, vuelve a preguntar quién es
+setInterval(() => {
+  if (!esTablet() || !S.activoId || $("#app").hidden) return;
+  if (Date.now() - S.ultimoUso > MINUTOS_INACTIVIDAD * 60000 && $("#cocina").hidden && $("#modal").hidden) { S.vista = "hoy"; preguntarQuienEres(); render(); }
+}, 30000);
 // Al volver a la app tras la medianoche, recarga para empezar el día nuevo
 let diaCargado = hoy();
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && hoy() !== diaCargado) location.reload(); });

@@ -57,6 +57,7 @@ async function archivoAParte(file) {
 
 const FORMATO_RECETA = `Devuelve SOLO JSON con esta forma:
 {"titulo": string, "minutos": number, "raciones": number,
+ "tipos": [uno o varios de "comida", "cena", "postre", "merienda", "desayuno", "entrante"],
  "ingredientes": [{"nombre": string, "cantidad": number|null, "unidad": string}],
  "pasos": [string]}
 Reglas: castellano de España; "nombre" del ingrediente en minúsculas y singular cuando sea natural (ej. "huevo", "fideo fino", "nata para cocinar");
@@ -75,6 +76,20 @@ export async function importarReceta({ texto, foto }) {
 export async function crearReceta(pedido) {
   return pedirJSON([FORMATO_RECETA, `Escribe una receta casera, realista y bien explicada para una familia de 5 (2 adultos y 3 adolescentes) a partir de esta petición: "${pedido}". Si es un plato tradicional, respeta la receta clásica española.`],
     "Eres KeKoMeMos, el ayudante de cocina de una familia española. Escribes recetas fiables, con cantidades concretas.");
+}
+
+// Buscar en Google (a través de Gemini con Búsqueda de Google) páginas de recetas
+// Devuelve { enlaces: [{uri, title}], sugerencias: html que Google exige mostrar }
+export async function buscarEnInternet(consulta) {
+  const m = getGenerativeModel(ai, { model: MODELOS.texto, tools: [{ googleSearch: {} }] });
+  const r = await m.generateContent(`Busca en Google recetas de "${consulta}" en webs de cocina en español (blogs y webs de recetas conocidas). Responde con una lista breve de las recetas encontradas.`);
+  const meta = r.response.candidates?.[0]?.groundingMetadata || {};
+  const enlaces = (meta.groundingChunks || []).map((c) => c.web).filter((w) => w?.uri);
+  const vistos = new Set();
+  return {
+    enlaces: enlaces.filter((w) => { const k = w.title || w.uri; if (vistos.has(k)) return false; vistos.add(k); return true; }).slice(0, 8),
+    sugerencias: meta.searchEntryPoint?.renderedContent || ""
+  };
 }
 
 // Prueba rápida de que Gemini responde (para diagnosticar)

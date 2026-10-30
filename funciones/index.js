@@ -48,3 +48,152 @@ exports.enviarAviso = onDocumentCreated("hogares/{hogar}/avisos/{aviso}", async 
     db.doc(`hogares/${hogar}/miembros/${d.uid}`).update({ tokens: FieldValue.arrayRemove(d.token) })
   ));
 });
+
+// =========================================================
+// Búsqueda web: leer páginas de recetas (foto y receta) y guardar fotos
+// =========================================================
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { getStorage, getDownloadURL } = require("firebase-admin/storage");
+const dns = require("node:dns/promises");
+const net = require("node:net");
+const crypto = require("node:crypto");
+
+const AGENTE = "Mozilla/5.0 (compatible; KeKoMeMos/1.0; recetas familiares)";
+
+function ipPrivada(ip) {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split(".").map(Number);
+    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  }
+  const x = ip.toLowerCase();
+  return x === "::1" || x === "::" || x.startsWith("fc") || x.startsWith("fd") || x.startsWith("fe80") || x.startsWith("::ffff:");
+}
+async function urlSegura(u) {
+  let url;
+  try { url = new URL(u); } catch { return false; }
+  if (!["http:", "https:"].includes(url.protocol)) return false;
+  const host = url.hostname;
+  if (/^(localhost|.*\.internal|.*\.local|metadata)$/i.test(host)) return false;
+  if (net.isIP(host)) return !ipPrivada(host);
+  try {
+    const ips = await dns.lookup(host, { all: true });
+    return ips.length > 0 && ips.every((i) => !ipPrivada(i.address));
+  } catch { return false; }
+}
+// fetch siguiendo redirecciones a mano y comprobando cada salto
+async function traer(u, { maxBytes = 1_500_000, tiempo = 8000 } = {}) {
+  let actual = u;
+  for (let i = 0; i < 6; i++) {
+    if (!(await urlSegura(actual))) throw new Error("URL no permitida");
+    const ctrl = AbortSignal.timeout(tiempo);
+    const r = await fetch(actual, { redirect: "manual", signal: ctrl, headers: { "user-agent": AGENTE, "accept-language": "es-ES,es;q=0.9" } });
+    if (r.status >= 300 && r.status < 400 && r.headers.get("location")) { actual = new URL(r.headers.get("location"), actual).href; continue; }
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const lector = r.body.getReader();
+    const trozos = []; let total = 0;
+    for (;;) {
+      const { done, value } = await lector.read();
+      if (done) break;
+      total += value.length;
+      if (total > maxBytes) { lector.cancel(); break; }
+      trozos.push(value);
+    }
+    return { url: actual, tipo: r.headers.get("content-type") || "", cuerpo: Buffer.concat(trozos) };
+  }
+  throw new Error("Demasiadas redirecciones");
+}
+
+const ENT = { ntilde: "ñ", Ntilde: "Ñ", aacute: "á", eacute: "é", iacute: "í", oacute: "ó", uacute: "ú", Aacute: "Á", Eacute: "É", Iacute: "Í", Oacute: "Ó", Uacute: "Ú", uuml: "ü", iexcl: "¡", iquest: "¿", deg: "º", ordm: "º", ordf: "ª", frac12: "½", frac14: "¼", frac34: "¾", hellip: "…", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", ndash: "–", mdash: "—", middot: "·" };
+const deco = (t) => String(t || "").replace(/&([a-zA-Z]+\d*);/g, (m, n) => (n in ENT ? ENT[n] : m)).replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(n)).trim();
+const meta = (html, prop) => {
+  const re = new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]*>`, "i");
+  const m = html.match(re);
+  return m ? deco((m[0].match(/content=["']([^"']*)["']/i) || [])[1]) : "";
+};
+function minutosISO(d) {
+  const m = String(d || "").match(/P(?:\d+D)?T?(?:(\d+)H)?(?:(\d+)M)?/i);
+  if (!m) return null;
+  const t = (Number(m[1]) || 0) * 60 + (Number(m[2]) || 0);
+  return t || null;
+}
+function texto(x) { return deco(String(x || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")); }
+function imagenDe(img) {
+  if (!img) return [];
+  if (typeof img === "string") return [img];
+  if (Array.isArray(img)) return img.flatMap(imagenDe);
+  return img.url ? [img.url] : [];
+}
+function pasosDe(ins) {
+  if (!ins) return [];
+  if (typeof ins === "string") return ins.split(/\n+|(?<=\.)\s+(?=[A-ZÁÉÍÓÚ])/).map(texto).filter(Boolean);
+  if (Array.isArray(ins)) return ins.flatMap(pasosDe);
+  if (ins.itemListElement) return pasosDe(ins.itemListElement);
+  if (ins.text) return [texto(ins.text)];
+  if (ins.name) return [texto(ins.name)];
+  return [];
+}
+function buscarReceta(nodo) {
+  if (!nodo || typeof nodo !== "object") return null;
+  if (Array.isArray(nodo)) { for (const n of nodo) { const r = buscarReceta(n); if (r) return r; } return null; }
+  const tipo = [].concat(nodo["@type"] || []);
+  if (tipo.some((t) => String(t).toLowerCase() === "recipe")) return nodo;
+  return buscarReceta(nodo["@graph"]) || buscarReceta(nodo.mainEntity);
+}
+function analizar(html, url) {
+  let receta = null;
+  for (const m of html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)) {
+    try { receta = buscarReceta(JSON.parse(m[1].trim())); } catch { /* JSON roto */ }
+    if (receta) break;
+  }
+  const titulo = meta(html, "og:title") || texto((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]);
+  const imagenes = [...imagenDe(receta?.image), meta(html, "og:image"), meta(html, "twitter:image")]
+    .filter(Boolean).map((i) => { try { return new URL(i, url).href; } catch { return ""; } }).filter((i) => i.startsWith("http"));
+  const salida = { url, sitio: new URL(url).hostname.replace(/^www\./, ""), titulo, imagenes: [...new Set(imagenes)].slice(0, 4) };
+  if (receta) {
+    salida.receta = {
+      titulo: texto(receta.name) || titulo,
+      ingredientes: [].concat(receta.recipeIngredient || receta.ingredients || []).map(texto).filter(Boolean),
+      pasos: pasosDe(receta.recipeInstructions),
+      minutos: minutosISO(receta.totalTime) || minutosISO(receta.cookTime),
+      raciones: parseInt(String([].concat(receta.recipeYield || [])[0] || ""), 10) || null
+    };
+  } else {
+    const cuerpo = html.replace(/<(script|style|nav|header|footer|aside)[\s\S]*?<\/\1>/gi, " ");
+    salida.texto = texto(cuerpo).slice(0, 12000);
+  }
+  return salida;
+}
+
+async function miembroDe(uid, hogarId) {
+  const m = await db.doc(`hogares/${hogarId}/miembros/${uid}`).get();
+  return m.exists;
+}
+
+// Lee hasta 8 páginas (encontradas con Google por Gemini) y devuelve foto, título y receta
+exports.leerWebs = onCall({ enforceAppCheck: true, timeoutSeconds: 60, memory: "512MiB" }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Inicia sesión");
+  const urls = [].concat(req.data?.urls || []).filter((u) => typeof u === "string").slice(0, 8);
+  const res = await Promise.allSettled(urls.map(async (u) => {
+    const r = await traer(u);
+    if (!/html/i.test(r.tipo)) throw new Error("no es HTML");
+    return analizar(r.cuerpo.toString("utf8"), r.url);
+  }));
+  return { paginas: res.filter((x) => x.status === "fulfilled").map((x) => x.value) };
+});
+
+// Descarga una foto de internet y la guarda en el hogar (así no depende de la web original)
+exports.guardarFotoWeb = onCall({ enforceAppCheck: true, timeoutSeconds: 60 }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Inicia sesión");
+  const { url, hogarId } = req.data || {};
+  if (typeof url !== "string" || typeof hogarId !== "string") throw new HttpsError("invalid-argument", "Faltan datos");
+  if (!(await miembroDe(req.auth.uid, hogarId))) throw new HttpsError("permission-denied", "No perteneces a este hogar");
+  let r;
+  try { r = await traer(url, { maxBytes: 6_000_000, tiempo: 12000 }); } catch (e) { throw new HttpsError("unavailable", "No se pudo descargar la foto: " + e.message); }
+  const tipo = r.tipo.split(";")[0].trim();
+  if (!/^image\/(jpeg|png|webp|gif|avif)$/i.test(tipo)) throw new HttpsError("invalid-argument", "El enlace no es una imagen");
+  const ext = tipo.split("/")[1].replace("jpeg", "jpg");
+  const ruta = `hogares/${hogarId}/recetas/web-${Date.now()}-${crypto.randomBytes(4).toString("hex")}.${ext}`;
+  const archivo = getStorage().bucket().file(ruta);
+  await archivo.save(r.cuerpo, { contentType: tipo, resumable: false, metadata: { cacheControl: "public, max-age=31536000" } });
+  return { url: await getDownloadURL(archivo) };
+});
