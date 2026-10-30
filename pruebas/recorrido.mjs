@@ -212,7 +212,7 @@ if (!EN_VIVO) {
 
   await paso("Perfil: QR, código y los 5 temas", async () => {
     await t.locator("#nav").getByRole("button", { name: "Yo" }).click();
-    await t.getByText("PRUEBA").waitFor();
+    await t.locator(".codigo-hogar", { hasText: "PRUEBA" }).waitFor();
     await t.locator(".qr svg").waitFor({ timeout: 10000 });
     await captura(t, "tablet-perfil");
     for (const [id, nombre] of [["azulejo", "Azulejo"], ["nordico", "Nórdico"], ["diner", "Diner retro"], ["cielo", "Cielo"], ["pizarra", "Pizarra clara"]]) {

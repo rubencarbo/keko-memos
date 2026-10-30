@@ -554,3 +554,4 @@ fieldset.tipos legend { padding: 0; margin-bottom: 6px; }
 .resultado-web .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .resultado-web small { color: var(--suave); }
 .google-sugerencias { margin-top: 4px; }
+.botones-foto .btn { flex: 1 1 150px; }

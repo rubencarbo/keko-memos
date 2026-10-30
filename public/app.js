@@ -155,8 +155,8 @@ const icono = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 function errorIA(e, que = "KeKoMeMos no ha podido responder") {
   const t = String(e?.message || e || "");
   if (/prepayment|credits are depleted|402|billing/i.test(t)) return `${que}: no queda saldo de Gemini. El administrador debe recargar créditos en AI Studio (aistudio.google.com › Billing).`;
-  if (/429|quota|rate/i.test(t)) return `${que}: demasiadas peticiones seguidas. Prueba en un minuto.`;
-  if (/app.?check|attestation|403/i.test(t)) return `${que}: la protección App Check ha rechazado la petición. Recarga la app.`;
+  if (/\b429\b|quota|rate.?limit|too many requests|resource.?exhausted/i.test(t)) return `${que}: demasiadas peticiones seguidas. Prueba en un minuto.`;
+  if (/app.?check|attestation|\b403\b/i.test(t)) return `${que}: la protección App Check ha rechazado la petición. Recarga la app.`;
   if (!navigator.onLine) return `${que}: no hay conexión a internet.`;
   return `${que}. (${(e?.code || "") + " " + t.slice(0, 120)})`;
 }
@@ -795,7 +795,7 @@ function vistaEditor() {
     <div class="receta-detalle">
       <div class="pila">
         <div class="foto" id="editor-foto" style="aspect-ratio:4/3;border-radius:var(--radio)">${foto ? `<img src="${esc(foto)}" alt="">` : "<span>Sin foto</span>"}</div>
-        <div class="fila">
+        <div class="fila botones-foto">
           <button type="button" class="btn btn-primario crece" data-accion="buscar-fotos">${icono("buscar")}Buscar fotos en internet</button>
           <label class="btn crece">Subir foto<input type="file" accept="image/*" data-input="foto-receta" hidden></label>
           <button type="button" class="btn crece" data-accion="generar-foto">${icono("chispa")}Crear con IA</button>
