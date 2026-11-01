@@ -22,6 +22,12 @@ function vigilar(page, quien) {
   page.on("console", (m) => { if (m.type() === "error") erroresPagina.push(`[${quien}] consola: ${m.text().slice(0, 300)}`); });
 }
 
+// Si mañana cae en la semana siguiente (hoy domingo), pasa a esa semana para ver los platos de mañana
+async function verManana(p) {
+  await p.waitForTimeout(400);
+  if (!(await p.getByText("Lentejas estofadas").count())) await p.getByRole("button", { name: "Semana siguiente" }).click();
+}
+
 // Responde hasta acertar (cada fallo genera un reto nuevo) y espera a que se revele el menú
 async function resolverReto(p, nombre, foto) {
   await p.locator(".reto-opciones").waitFor({ timeout: 30000 });
@@ -131,6 +137,7 @@ if (!EN_VIVO) {
 
   await paso("Semana: se ve la planificación", async () => {
     await t.locator("#nav").getByRole("button", { name: "Menús" }).click();
+    await verManana(t);
     await t.getByText("Lentejas estofadas").first().waitFor();
     await captura(t, "tablet-semana");
   });
@@ -306,6 +313,7 @@ if (!EN_VIVO) {
     await a.getByText("Fideos a la cazuela").first().waitFor({ timeout: 20000 });
     await captura(a, "movil-adulto-hoy");
     await a.locator("#nav").getByRole("button", { name: "Menús" }).click();
+    await verManana(a);
     await a.getByText("Lentejas estofadas").first().waitFor();
     await captura(a, "movil-adulto-semana");
     await a.locator("#nav").getByRole("button", { name: "Recetas" }).click();

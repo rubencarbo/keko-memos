@@ -1114,7 +1114,7 @@ async function mostrarIdeas(tipo) {
     </div>
     ${propias.length ? `<h3 class="h2">De vuestras recetas</h3>
     <div class="sugerencias-lista">${propias.map((r) => `<div class="sugerencia">
-      <span class="foto">${fotoHTML(r)}</span><span>${esc(r.titulo)}</span>
+      <span class="foto">${fotoHTML(r)}</span><span class="sug-titulo">${esc(r.titulo)}</span>
       <span class="fila" style="padding:0 8px 8px;gap:6px"><button class="btn" style="min-height:40px;flex:1" data-accion="asignar-sugerencia" data-hueco="${hueco}" data-id="${r.id}">Para hoy</button></span>
     </div>`).join("")}</div>` : ""}
     <h3 class="h2">Ideas nuevas de KeKoMeMos</h3>
