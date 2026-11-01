@@ -26,7 +26,7 @@ function vigilar(page, quien) {
 async function resolverReto(p, nombre, foto) {
   await p.locator(".reto-opciones").waitFor({ timeout: 30000 });
   if (foto) await captura(p, foto);
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     if (await p.getByText(`¡Bien, ${nombre}!`).count()) return;
     const op = p.locator(".reto-opciones button:not([disabled])").first();
     if (await op.count()) await op.click().catch(() => {});
@@ -105,7 +105,7 @@ if (!EN_VIVO) {
     await t.locator(".selector-cocinero").getByRole("button", { name: "Pablo" }).click();
     await resolverReto(t, "Pablo", "tablet-reto-peque");
     await captura(t, "tablet-menu-revelado");
-    await t.getByRole("button", { name: "¡Genial!" }).click();
+    await t.getByRole("button", { name: "¡A la mesa!" }).click();
     await t.getByText("45 pts").waitFor({ timeout: 10000 });
   });
 
@@ -118,6 +118,15 @@ if (!EN_VIVO) {
     await captura(t, "tablet-anadir-receta");
     await t.getByRole("button", { name: "Cerrar" }).click();
     await t.locator("#nav").getByRole("button", { name: "Hoy" }).click();
+  });
+
+  await paso("Hoy: botón «No sé qué cocinar · ¡Dame ideas!»", async () => {
+    await t.locator("#nav").getByRole("button", { name: "Hoy" }).click();
+    await t.getByRole("button", { name: /No sé qué cocinar/ }).click();
+    await t.getByText("De vuestras recetas").waitFor();
+    await t.waitForTimeout(1500);
+    await captura(t, "tablet-ideas");
+    await t.getByRole("button", { name: "Cerrar" }).click();
   });
 
   await paso("Semana: se ve la planificación", async () => {
@@ -242,16 +251,27 @@ if (!EN_VIVO) {
 
   await paso("Móvil menor: el menú está oculto hasta resolver el reto", async () => {
     if (await m.locator("#nav").getByRole("button", { name: "Menús" }).count()) throw new Error("el menor ve la pestaña Semana");
-    await m.locator(".hero-titulo", { hasText: /QUÉKOmemos|QUÉCEnamos/ }).waitFor();
-    await m.locator(".hero-keko .reto-opciones").waitFor({ timeout: 30000 });
-    await captura(m, "movil-menor-quekomemos");
-    for (let i = 0; i < 8 && await m.locator(".hero-keko").count(); i++) {
-      const op = m.locator(".hero-keko .reto-opciones button:not([disabled])").first();
+    if (await m.locator("#nav").getByRole("button", { name: "Recetas" }).count()) throw new Error("el menor ve la pestaña Recetas");
+    await m.locator(".hero-titulo", { hasText: /KEKO|KECE/ }).waitFor();
+    if (await m.locator(".plato").count()) throw new Error("el menor ve el plato antes de acertar");
+    await captura(m, "movil-menor-kekomemos");
+    await m.locator(".boton-fisico").click();
+    await m.locator(".modal-reto .reto-opciones").waitFor({ timeout: 30000 });
+    await m.waitForTimeout(800);
+    await captura(m, "movil-menor-reto");
+    let bomba = false;
+    for (let i = 0; i < 30; i++) {
+      if (await m.getByText("¡Bien, Hugo!").count()) break;
+      if (!bomba && await m.locator(".bomba").count()) { bomba = true; await captura(m, "movil-menor-bomba"); }
+      const op = m.locator(".modal-reto .reto-opciones button:not([disabled])").first();
       if (await op.count()) await op.click().catch(() => {});
-      await m.waitForTimeout(700);
+      await m.waitForTimeout(1000);
     }
+    await m.getByText("¡Bien, Hugo!").waitFor({ timeout: 5000 });
+    await m.waitForTimeout(1200);
+    await captura(m, "movil-menor-revelado");
+    await m.getByRole("button", { name: "¡A la mesa!" }).click();
     await m.locator(".hero-keko").waitFor({ state: "detached", timeout: 5000 });
-    await m.getByText(/¡Bien, Hugo!/).waitFor({ timeout: 5000 });
     await captura(m, "movil-menor-menu-visible");
   });
 

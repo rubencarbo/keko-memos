@@ -182,21 +182,93 @@ Devuelve JSON: {"faltan":[{"nombre":"huevo","cantidad":12,"unidad":"ud"}]} con n
 }
 
 // Acertijo de lógica o ingenio creado por Gemini; si falla, reto matemático local
+// ---------- Banco de retos «premium» (revisados a mano: respuesta única y explicación) ----------
+// Inspirados en: pensamiento lateral (Paul Sloane), lógica de Raymond Smullyan y Lewis Carroll,
+// los puzles del Profesor Layton, test tipo Mensa, adivinanzas populares españolas y emojis de cocina.
+const R = (id, categoria, pregunta, correcta, malas, pista, explicacion) => ({ id, categoria, pregunta, correcta, opciones: [correcta, ...malas], pista, explicacion });
+export const BANCO_RETOS = [
+  R("monopoly", "Pensamiento lateral", "Un hombre empuja su coche hasta un hotel y en ese momento sabe que está arruinado. ¿Qué está pasando?", "Está jugando al Monopoly", ["Se le ha averiado el coche", "Le han robado la cartera", "El hotel está cerrado"], "No hace falta salir de casa para que ocurra.", "En el Monopoly, si caes en una casilla con hotel tienes que pagar… y a veces te arruinas."),
+  R("foto", "Pensamiento lateral", "Una mujer dispara a su marido, lo mete bajo el agua cinco minutos y luego lo cuelga. Media hora después cenan juntos tan felices. ¿Cómo es posible?", "Le hizo una foto y la reveló", ["Era una pistola de agua", "Todo era un sueño", "Estaban rodando una película"], "Piensa en cámaras antiguas.", "Disparar una foto, revelarla en agua y colgarla a secar: así se hacían las fotos antes."),
+  R("silencio", "Adivinanza", "¿Qué se rompe con solo nombrarlo?", "El silencio", ["Un secreto", "Un cristal", "Una promesa"], "Ahora mismo lo estás oyendo… o no.", "En cuanto dices «silencio», ya no hay silencio."),
+  R("tren", "Pregunta trampa", "Un tren eléctrico viaja hacia el norte y el viento sopla hacia el sur. ¿Hacia dónde va el humo?", "No echa humo", ["Hacia el sur", "Hacia el norte", "Hacia arriba"], "Fíjate bien en qué tipo de tren es.", "Los trenes eléctricos no echan humo."),
+  R("maria", "Pregunta trampa", "El padre de María tiene cinco hijas: Nana, Nene, Nini y Nono. ¿Cómo se llama la quinta?", "María", ["Nunu", "Nina", "Nena"], "Vuelve a leer el principio.", "Es el padre de María, así que la quinta hija es… María."),
+  R("ovejas", "Pregunta trampa", "Un granjero tiene 17 ovejas. Se le mueren todas menos 9. ¿Cuántas le quedan?", "9", ["8", "17", "0"], "«Todas menos…»", "Si mueren todas menos 9, quedan exactamente 9."),
+  R("meses", "Pregunta trampa", "¿Cuántos meses del año tienen 28 días?", "Los 12", ["Solo febrero", "Dos", "Ninguno"], "No pregunta cuántos tienen SOLO 28.", "Todos los meses tienen, como mínimo, 28 días."),
+  R("croquetas", "Lógica", "Si 5 máquinas tardan 5 minutos en hacer 5 croquetas, ¿cuánto tardan 100 máquinas en hacer 100 croquetas?", "5 minutos", ["100 minutos", "20 minutos", "1 minuto"], "¿Cuánto tarda UNA máquina en hacer UNA croqueta?", "Cada máquina hace una croqueta en 5 minutos, así que 100 máquinas hacen 100 croquetas en 5 minutos."),
+  R("calcetines", "Lógica", "A oscuras, en un cajón con calcetines negros y blancos mezclados, ¿cuántos tienes que sacar como mínimo para tener seguro un par del mismo color?", "3", ["2", "4", "5"], "Solo hay dos colores.", "Con 3 calcetines y solo 2 colores, al menos dos coinciden seguro."),
+  R("bolas", "Lógica (Layton)", "Tienes 8 bolas iguales, pero una pesa un poco más. Con una balanza de dos platos, ¿cuántas pesadas necesitas como mínimo para encontrarla seguro?", "2", ["3", "1", "4"], "Prueba a dividir en grupos de 3.", "Pesas 3 contra 3: si equilibran, está entre las 2 restantes; si no, entre las 3 del lado pesado. Una segunda pesada basta."),
+  R("tarta", "Lógica (Layton)", "Con solo 3 cortes rectos de cuchillo, ¿cuántos trozos como máximo puedes sacar de una tarta?", "8", ["6", "7", "9"], "Nadie dijo que todos los cortes fueran desde arriba.", "Dos cortes en cruz dan 4 trozos y un tercer corte horizontal, por la mitad de la altura, los convierte en 8."),
+  R("reloj", "Lógica (Mensa)", "A las 3:15, ¿qué ángulo forman las agujas del reloj?", "7,5 grados", ["0 grados", "15 grados", "90 grados"], "La aguja de las horas también se mueve.", "En 15 minutos la aguja corta avanza un cuarto de hora: 30° ÷ 4 = 7,5°."),
+  R("ayer", "Lógica (Lewis Carroll)", "Si ayer fuera mañana, hoy sería viernes. ¿Qué día es hoy?", "Domingo", ["Miércoles", "Sábado", "Jueves"], "Cuenta los días hacia atrás desde ese viernes.", "Si ayer (sábado) fuera mañana, «hoy» sería el día anterior a ese sábado: viernes. Así que hoy es domingo."),
+  R("alturas", "Lógica", "Juan es más alto que Luis. Pedro es más bajo que Luis. ¿Quién es el más alto?", "Juan", ["Luis", "Pedro", "No se puede saber"], "Ordénalos de mayor a menor.", "Juan > Luis > Pedro."),
+  R("isla", "Lógica (Smullyan)", "En una isla, los caballeros siempre dicen la verdad y los escuderos siempre mienten. Ana dice: «Bea y yo somos escuderos». ¿Qué es cada una?", "Ana escudero, Bea caballero", ["Las dos escuderos", "Las dos caballeros", "Ana caballero, Bea escudero"], "¿Podría un caballero decir esa frase?", "Un caballero nunca diría que es escudero, así que Ana miente. Como miente, no son las dos escuderos: Bea es caballero."),
+  R("edades", "Lógica", "Hoy tengo el triple de años que mi hermano. Dentro de 10 años tendré el doble. ¿Cuántos años tengo?", "30", ["20", "15", "24"], "Prueba con tu hermano a los 10.", "Hermano 10 y yo 30. En 10 años: 20 y 40, el doble."),
+  R("letras", "Secuencia (Mensa)", "¿Qué letra sigue? U, D, T, C, C, S, S, …", "O", ["N", "D", "S"], "Cuenta en voz alta.", "Son las iniciales de uno, dos, tres, cuatro, cinco, seis, siete… ¡ocho!"),
+  R("fibonacci", "Secuencia (Mensa)", "¿Qué número sigue? 1, 1, 2, 3, 5, 8, 13, …", "21", ["18", "20", "26"], "Mira los dos anteriores.", "Cada número es la suma de los dos anteriores: 8 + 13 = 21 (sucesión de Fibonacci)."),
+  R("pronicos", "Secuencia (Mensa)", "¿Qué número sigue? 2, 6, 12, 20, 30, …", "42", ["40", "36", "44"], "Mira cuánto aumenta cada vez.", "Suma 4, 6, 8, 10… y luego 12: 30 + 12 = 42."),
+  R("pera", "Adivinanza popular", "Blanca por dentro, verde por fuera. Si quieres que te lo diga, espera.", "La pera", ["El melón", "El kiwi", "La sandía"], "Lee despacio la última frase.", "«Espera» suena a «es pera»."),
+  R("platano", "Adivinanza popular", "Oro parece, plata no es. Quien no lo adivine, bien tonto es.", "El plátano", ["El limón", "La naranja", "El oro"], "Junta dos palabras de la adivinanza.", "«Plata no es» → plá-ta-no."),
+  R("ajo", "Adivinanza popular", "Tiene dientes y no come, tiene cabeza y no es hombre.", "El ajo", ["El peine", "El tenedor", "La cebolla"], "Está en muchas recetas de casa.", "Una cabeza de ajos tiene dientes de ajo."),
+  R("reloj-agujas", "Adivinanza", "Tengo agujas pero no pincho, tengo números pero no sumo. ¿Qué soy?", "Un reloj", ["Un pino", "Un erizo", "Una calculadora"], "Lo miras para no llegar tarde a comer.", "Las agujas del reloj marcan los números de las horas."),
+  R("emoji-tortilla", "Emoji-plato", "🥔 + 🥚 + 🧅 + 🍳 = ?", "Tortilla de patatas", ["Huevos rotos", "Patatas bravas", "Ensaladilla rusa"], "Lleva cebolla… o no, según a quién preguntes.", "Patata, huevo y cebolla en la sartén: tortilla de patatas."),
+  R("emoji-paella", "Emoji-plato", "🍚 + 🦐 + 🍋 + 🥘 = ?", "Paella", ["Risotto", "Arroz con leche", "Sushi"], "Se hace en un recipiente que se llama igual que el plato.", "Arroz, gambas y limón en paellera: paella."),
+  R("emoji-gazpacho", "Emoji-plato", "🍅 + 🥒 + 🫑 + 🧄 + 🧊 = ?", "Gazpacho", ["Pisto", "Salmorejo", "Ensalada"], "Se toma frío y en verano.", "Tomate, pepino, pimiento y ajo, bien frío: gazpacho."),
+  R("emoji-carbonara", "Emoji-plato", "🍝 + 🥓 + 🥚 + 🧀 = ?", "Espaguetis a la carbonara", ["Lasaña", "Macarrones con tomate", "Pizza"], "Viene de Roma.", "Pasta, panceta, huevo y queso: carbonara."),
+  R("emoji-arroz", "Emoji-plato", "🥛 + 🍚 + 🍋 + canela = ?", "Arroz con leche", ["Natillas", "Flan", "Torrijas"], "Es de postre.", "Leche, arroz, piel de limón y canela: arroz con leche."),
+  R("baya", "¿Verdad o bulo?", "Para un botánico, ¿cuál de estas frutas es una baya?", "El plátano", ["La fresa", "La frambuesa", "La cereza"], "Sorprendentemente, la que menos lo parece.", "El plátano es una baya; la fresa y la frambuesa no lo son, y la cereza es una drupa."),
+  R("tomate", "¿Verdad o bulo?", "¿De dónde es originario el tomate?", "De América", ["De Italia", "De España", "De la India"], "Llegó a Europa en barco hace unos 500 años.", "El tomate viene de América (México y Perú) y llegó a Europa en el siglo XVI."),
+  R("aceite", "¿Verdad o bulo?", "¿Qué pesa más: un litro de aceite o un litro de agua?", "El litro de agua", ["El litro de aceite", "Pesan igual", "Depende de la temperatura"], "Piensa en qué flota sobre qué.", "El aceite es menos denso que el agua, por eso flota y un litro pesa menos (unos 920 g)."),
+  R("huevo", "Pregunta trampa", "¿Cuántos huevos puedes comerte con el estómago vacío?", "Uno", ["Ninguno", "Tres", "Los que quieras"], "Después del primero…", "Después del primero ya no tienes el estómago vacío.")
+];
+
+function retoDelBanco() {
+  let vistos = [];
+  try { vistos = JSON.parse(localStorage.getItem("retosVistos") || "[]"); } catch { /* nada */ }
+  let libres = BANCO_RETOS.filter((r) => !vistos.includes(r.id));
+  if (!libres.length) { vistos = []; libres = BANCO_RETOS; }
+  const r = libres[Math.floor(Math.random() * libres.length)];
+  try { localStorage.setItem("retosVistos", JSON.stringify([...vistos, r.id])); } catch { /* nada */ }
+  return { ...r, opciones: barajar([...r.opciones]) };
+}
+
+const ESTILOS_IA = [
+  ["Pensamiento lateral", "Situación misteriosa con una explicación ingeniosa, como «Un hombre empuja su coche hasta un hotel y sabe que está arruinado» → «Está jugando al Monopoly»."],
+  ["Lógica (Layton)", "Puzle de razonamiento con números pequeños, balanzas, cortes o recorridos, como «¿Cuántas pesadas necesitas para encontrar la bola más pesada entre 8?» → «2»."],
+  ["Emoji-plato", "Un plato o postre conocido expresado con 3–5 emojis, como «🍚 + 🦐 + 🍋 + 🥘» → «Paella». Las opciones incorrectas deben ser platos parecidos."],
+  ["Adivinanza", "Adivinanza en verso, con juego de palabras, al estilo de las adivinanzas populares españolas."],
+  ["¿Verdad o bulo?", "Dato curioso y verificable sobre comida o cocina, con respuestas sorprendentes pero ciertas."],
+  ["Pregunta trampa", "Pregunta breve que parece fácil pero tiene truco, como «¿Cuántos meses tienen 28 días?» → «Los 12»."]
+];
+
 export async function generarAcertijo(edad = 16) {
-  if (Math.random() < 0.35) return generarReto(edad);
+  if (Math.random() < 0.6) return retoDelBanco();
   try {
-    const temas = ["lógica", "adivinanza", "ingenio lateral", "secuencia de letras", "acertijo de cocina", "problema de razonamiento", "acertijo con trampa"];
-    const tema = temas[Math.floor(Math.random() * temas.length)];
-    const r = await pedirJSON([`Crea un acertijo de ${tema} en castellano para alguien de ${edad} años, ni demasiado fácil ni imposible, que se pueda resolver en menos de un minuto.
-Debe tener UNA única respuesta correcta clara y 3 opciones incorrectas plausibles. Respuestas cortas (máximo 5 palabras).
-Devuelve JSON: {"pregunta": string, "opciones": [4 strings], "correcta": string (idéntica a una de las opciones), "explicacion": string corta}`],
-      "Eres KeKoMeMos, un asistente divertido que pone retos mentales a adolescentes antes de desvelar el menú del día.");
-    if (!r?.pregunta || !Array.isArray(r.opciones) || r.opciones.length < 2 || !r.opciones.includes(r.correcta)) throw new Error("acertijo mal formado");
-    return { pregunta: r.pregunta, opciones: barajar([...r.opciones]), correcta: r.correcta, explicacion: r.explicacion || "", ia: true };
+    const [categoria, guia] = ESTILOS_IA[Math.floor(Math.random() * ESTILOS_IA.length)];
+    const r = await pedirJSON([`Crea UN reto nuevo y original de tipo «${categoria}» en castellano de España para alguien de ${edad} años.
+${guia}
+Requisitos: divertido, ingenioso, resoluble en menos de un minuto, con UNA única respuesta correcta indiscutible y 3 opciones incorrectas plausibles (máximo 6 palabras cada una). No uses retos muy conocidos de los ejemplos.
+Comprueba tú mismo que la respuesta es correcta antes de responder.
+Devuelve JSON: {"pregunta": string, "opciones": [4 strings], "correcta": string idéntica a una opción, "pista": string corta que ayude sin desvelar, "explicacion": string corta}`],
+      "Eres KeKoMeMos, un creador de acertijos premium (estilo Profesor Layton, Paul Sloane y Mensa) para adolescentes que quieren descubrir el menú del día.");
+    if (!r?.pregunta || !Array.isArray(r.opciones) || r.opciones.length < 3 || !r.opciones.includes(r.correcta)) throw new Error("acertijo mal formado");
+    return { categoria, pregunta: r.pregunta, opciones: barajar([...r.opciones]), correcta: r.correcta, pista: r.pista || "", explicacion: r.explicacion || "", ia: true };
   } catch (e) {
-    console.warn("Acertijo local:", e);
-    return generarReto(edad);
+    console.warn("Reto del banco:", e);
+    return retoDelBanco();
   }
+}
+
+// Ideas para el cocinero indeciso
+export async function ideasCocina({ tipo, hayEnCasa = [], recientes = [], conocidas = [] }) {
+  const mes = new Date().toLocaleDateString("es-ES", { month: "long" });
+  const r = await pedirJSON([`Propón 4 ideas de ${tipo === "cena" ? "cena" : "comida"} para hoy (${mes}) para una familia española de 5 (2 adultos y 3 adolescentes).
+Ingredientes que ya hay en casa: ${hayEnCasa.slice(0, 40).join(", ") || "(desconocido)"}.
+Platos de los últimos días (no los repitas): ${recientes.join(", ") || "(ninguno)"}.
+Recetas que ya conocen (puedes proponer variaciones, no las mismas): ${conocidas.slice(0, 40).join(", ") || "(ninguna)"}.
+Mezcla: una aprovechando lo que hay en casa, una rápida (menos de 30 minutos), una de temporada y una diferente para sorprender. ${tipo === "cena" ? "Que sean cenas más ligeras." : ""}
+Devuelve JSON: {"ideas": [{"titulo": string, "descripcion": string de una frase apetecible, "minutos": number, "motivo": "aprovecha lo de casa" | "rápida" | "de temporada" | "para sorprender"}]}`],
+    "Eres KeKoMeMos, un cocinero casero español práctico y con buen gusto.");
+  return (r.ideas || []).filter((i) => i?.titulo).slice(0, 4);
 }
 
 // =========================================================

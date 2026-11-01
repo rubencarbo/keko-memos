@@ -171,13 +171,19 @@ function notificar(texto) {
   $("#avisos-flotantes").appendChild(d);
   setTimeout(() => d.remove(), texto.length > 80 ? 9000 : 3200);
 }
-function abrirModal(html, ancho = false) {
+function abrirModal(html, ancho = false, clase = "") {
   const m = $("#modal");
-  m.innerHTML = `<div class="modal ${ancho ? "ancho" : ""}" role="dialog" aria-modal="true">${html}</div>`;
+  m.className = "modal-fondo " + (clase ? clase + "-fondo" : "");
+  m.innerHTML = `<div class="modal ${ancho ? "ancho" : ""} ${clase}" role="dialog" aria-modal="true">${html}</div>`;
   m.hidden = false;
   m.querySelector("input:not([type=file]):not([type=hidden]), textarea")?.focus?.();
 }
-function cerrarModal() { const m = $("#modal"); m.hidden = true; m.innerHTML = ""; }
+function cerrarModal() {
+  const m = $("#modal");
+  m.hidden = true; m.innerHTML = ""; m.className = "modal-fondo";
+  clearInterval(S.relojBomba);
+  if (S.retoAbierto) { S.retoAbierto = false; render(); }
+}
 const cabeceraModal = (t) => `<div class="modal-cabecera"><h2 class="titulo">${esc(t)}</h2><button class="btn-x" data-accion="cerrar-modal" aria-label="Cerrar">×</button></div>`;
 function confirmar(texto) { return window.confirm(texto); }
 
@@ -439,7 +445,7 @@ document.addEventListener("focusout", () => setTimeout(() => {
 // =========================================================
 function navItems() {
   const items = [["hoy", "Hoy"], ["semana", "Menús"], ["recetas", "Recetas"], ["compra", "Compra"], ["yo", "Yo"]];
-  return esMenor() ? items.filter(([v]) => v !== "semana") : items;
+  return esMenor() ? items.filter(([v]) => v !== "semana" && v !== "recetas") : items;
 }
 function render() {
   const vistaBase = { receta: "recetas", editor: "recetas" }[S.vista] || S.vista;
@@ -449,14 +455,18 @@ function render() {
   const sinLeer = S.avisos.filter((a) => a.de !== S.user.uid && (a.para === "todos" || a.para === S.user.uid) && (a.creadoMs || 0) > Number(localStorage.getItem("avisosLeidos") || 0)).length;
   const titulos = { hoy: S.hogar?.nombre || "Hoy en casa", semana: "Planificador de menús", recetas: "Recetas", receta: "Receta", editor: S.param ? "Editar receta" : "Nueva receta", compra: "Lista de la compra", yo: "Mi perfil" };
   const yo = yoActivo();
+  titulos.hoy = esMenor() ? `¡Hola, ${yo?.nombre || ""}!` : (comidaActual() === "comida" ? "¿Qué comemos hoy?" : "¿Qué cenamos hoy?");
   $("#cabecera").innerHTML = `
-    <div>
+    <div class="cab-fila">
+      <div class="cab-familia">${esc(S.hogar?.nombre || "KeKoMeMos")}</div>
+      <div class="cabecera-acciones">
+        ${yo ? `<button class="cab-persona" data-accion="quien-soy" aria-label="${esTablet() ? "Cambiar de persona" : "Mi perfil"}: ${esc(yo.nombre)}">${avatar(yo, 30)}<span class="cab-nombre">${esTablet() ? "Soy " : ""}${esc(yo.nombre)}</span></button>` : ""}
+        <button class="cab-campana" data-accion="bandeja" aria-label="Avisos${sinLeer ? `: ${sinLeer} sin leer` : ""}">${icono("campana")}${sinLeer ? `<span class="contador">${sinLeer}</span>` : ""}</button>
+      </div>
+    </div>
+    <div class="cab-sub">
       <div class="fecha">${esc(fechaLarga(new Date()))}</div>
       <h1>${esc(titulos[S.vista] || "")}</h1>
-    </div>
-    <div class="cabecera-acciones">
-      ${yo ? `<button class="chip-cocinero" data-accion="quien-soy" aria-label="${esTablet() ? "Cambiar de persona" : "Mi perfil"}: ${esc(yo.nombre)}">${avatar(yo, 38)}<span><span class="prefijo">${esTablet() ? "Soy " : "Hola, "}</span>${esc(yo.nombre)}</span></button>` : ""}
-      <button class="btn btn-icono" data-accion="bandeja" aria-label="Avisos">${icono("campana")}${sinLeer ? `<span class="contador">${sinLeer}</span>` : ""}</button>
     </div>`;
   const vistas = { hoy: vistaHoy, semana: vistaSemana, recetas: vistaRecetas, receta: vistaReceta, editor: vistaEditor, compra: vistaCompra, yo: vistaYo };
   $("#vista").innerHTML = (vistas[S.vista] || vistaHoy)();
@@ -505,7 +515,7 @@ function tarjetaPlato(tipo, grande) {
         <div class="plato-titulo">${esMenor() ? "Aún no está decidido" : "¿Qué hacemos?"}</div>
         ${grande ? sugerenciasHTML(tipo) : ""}
         ${esAdulto() ? `<div class="fila"><button class="btn btn-primario" data-accion="elegir-hueco" data-hueco="${hoy()}_${tipo}">${grande ? "Ver todas las recetas" : "Elegir plato"}</button>
-        <button class="btn" data-accion="sorpresa" data-hueco="${hoy()}_${tipo}">${icono("chispa")}Sorpréndeme</button></div>` : ""}
+        <button class="btn btn-acento" data-accion="dame-ideas" data-tipo="${tipo}">${icono("chispa")}Dame ideas</button></div>` : ""}
         ${grande ? lineaCocina() : ""}
       </div></article>`;
   }
@@ -525,35 +535,89 @@ function tarjetaPlato(tipo, grande) {
     </div></article>`;
 }
 
-// Pantalla grande para los menores: ¿QUÉKOmemos? / ¿QUÉCEnamos? con el juego debajo
+// Pantalla grande para los menores: ¿KEKOmemos? / ¿KECEnamos? con un botón gigante
+const SEGUNDOS_BOMBA = EMULADORES ? 3 : 30;
+const claveBomba = (tipo, persona) => `bomba-${persona.id}-${hoy()}-${tipo}`;
 function heroReto() {
   const tipo = comidaActual();
   const persona = yoActivo();
   if (!esMenor() || retoResuelto(tipo)) return "";
-  const titulo = tipo === "comida" ? "¿QUÉKOmemos?" : "¿QUÉCEnamos?";
-  const st = S.retoInline;
-  const valido = st && st.tipo === tipo && st.personaId === persona.id;
-  if (!valido || st.cargando) {
-    if (!valido) setTimeout(() => cargarRetoInline(tipo), 0);
-    return `<section class="hero-keko"><h2 class="hero-titulo">${titulo}</h2><p>KeKoMeMos está pensando un reto para ti, ${esc(persona.nombre)}…</p><div class="cargando-plato" aria-hidden="true"></div></section>`;
-  }
-  const r = st.reto;
-  return `<section class="hero-keko" aria-live="polite">
-    <h2 class="hero-titulo">${titulo}</h2>
-    <p>${esc(persona.nombre)}, acierta y descubre ${tipo === "comida" ? "la comida" : "la cena"} de hoy <b>(+${PUNTOS_RETO} puntos)</b></p>
-    <div class="reto-pregunta">${esc(r.pregunta)}</div>
-    <div class="reto-opciones">${r.opciones.map((o, i) => `<button class="btn ${st.fallos?.includes(i) ? "mal" : ""}" data-accion="responder-reto" data-i="${i}" ${st.fallos?.includes(i) ? "disabled" : ""}>${esc(o)}</button>`).join("")}</div>
-    ${st.fallos?.length ? `<p class="suave" style="margin:0">¡Casi! Prueba otra vez${st.fallos.length >= 2 ? ` o <button class="btn-enlace" data-accion="otro-reto">pide otro reto</button>` : ""}.</p>` : ""}
-  </section>`;
+  setTimeout(() => prepararReto(persona, tipo), 0);
+  return `<section class="hero-keko">
+    <h2 class="hero-titulo">${tipo === "comida" ? "¿KEKO<span>memos</span>?" : "¿KECE<span>namos</span>?"}</h2>
+    <p>${esc(persona.nombre)}, pulsa el botón y supera el reto para descubrir ${tipo === "comida" ? "la comida" : "la cena"}</p>
+    <button class="boton-fisico" data-accion="abrir-reto" aria-label="Abrir el reto"><span class="boton-base"><span class="boton-cara">¡PULSA!</span></span></button>
+  </section>
+  `;
 }
-async function cargarRetoInline(tipo) {
-  const persona = yoActivo();
-  if (S.retoInline?.cargando) return;
-  S.retoInline = { tipo, personaId: persona.id, cargando: true };
-  const reto = await IA.generarAcertijo(edad(persona.nacimiento) ?? 16);
-  if (S.retoInline?.personaId !== persona.id) return;
-  S.retoInline = { tipo, personaId: persona.id, reto, fallos: [] };
-  if (S.vista === "hoy") render();
+async function prepararReto(persona, tipo) {
+  const st = S.retoInline;
+  if (st && st.personaId === persona.id && st.tipo === tipo) return st.promesa;
+  const nuevo = { personaId: persona.id, tipo, fallos: [], pistaVista: false };
+  S.retoInline = nuevo;
+  nuevo.promesa = IA.generarAcertijo(edad(persona.nacimiento) ?? 16).then((r) => { nuevo.reto = r; return r; });
+  return nuevo.promesa;
+}
+async function abrirReto(persona = yoActivo(), tipo = comidaActual()) {
+  S.retoAbierto = true;
+  abrirModal(`<div class="reto-fx" aria-hidden="true"></div><div class="reto-cargando"><div class="cargando-plato"></div><p>KeKoMeMos está preparando tu reto…</p></div>`, true, "modal-reto");
+  await prepararReto(persona, tipo);
+  if ($("#modal").hidden) return;
+  pintarReto(persona);
+}
+function pintarReto(persona) {
+  const st = S.retoInline, r = st.reto;
+  const bloqueo = Number(localStorage.getItem(claveBomba(st.tipo, persona)) || 0);
+  const bloqueado = bloqueo > Date.now();
+  const cuerpo = $("#modal .modal");
+  if (!cuerpo) return;
+  cuerpo.innerHTML = `<div class="reto-fx" aria-hidden="true"></div>
+    <div class="modal-cabecera"><span class="reto-categoria">${esc(r.categoria || "Reto")}</span><button class="btn-x" data-accion="cerrar-modal" aria-label="Cerrar">×</button></div>
+    <div class="reto-pregunta">${esc(r.pregunta)}</div>
+    ${bloqueado ? `<div class="bomba" role="timer" aria-live="polite">
+        <svg class="bomba-svg" viewBox="0 0 64 64" aria-hidden="true"><circle cx="28" cy="38" r="20" fill="#1d1d1f"/><rect x="34" y="14" width="10" height="9" rx="2" transform="rotate(35 39 18)" fill="#444"/><path d="M44 12 q6 -8 12 -4" stroke="#8a6d3b" stroke-width="3" fill="none"/><circle class="chispa-mecha" cx="56" cy="8" r="4" fill="#ffb300"/><circle cx="21" cy="31" r="5" fill="#fff" opacity=".25"/></svg>
+        <div><div class="bomba-cuenta" id="cuenta-bomba">00:${String(Math.ceil((bloqueo - Date.now()) / 1000)).padStart(2, "0")}</div>
+        <div class="bomba-texto">¡Fallaste! Espera a que la mecha se apague para volver a intentarlo…</div></div>
+      </div>` : ""}
+    <div class="reto-opciones">${r.opciones.map((o, i) => `<button class="btn ${st.fallos.includes(i) ? "mal" : ""}" data-accion="responder-reto" data-i="${i}" ${bloqueado || st.fallos.includes(i) ? "disabled" : ""}>${esc(o)}</button>`).join("")}</div>
+    ${r.pista ? (st.pistaVista ? `<p class="reto-pista">💡 ${esc(r.pista)}</p>` : `<button class="btn-enlace" data-accion="ver-pista">💡 Ver una pista</button>`) : ""}`;
+  clearInterval(S.relojBomba);
+  if (bloqueado) {
+    S.relojBomba = setInterval(() => {
+      const quedan = Math.ceil((bloqueo - Date.now()) / 1000);
+      const c = $("#cuenta-bomba");
+      if (quedan <= 0 || !c) { clearInterval(S.relojBomba); if (c) pintarReto(persona); return; }
+      c.textContent = `00:${String(quedan).padStart(2, "0")}`;
+      c.classList.toggle("urgente", quedan <= 5);
+    }, 250);
+  }
+}
+function confeti(n = 60) {
+  const colores = ["#F2C94C", "#E4572E", "#2E6B4F", "#2F5FC4", "#F29C9C", "#ffffff"];
+  return `<div class="confeti" aria-hidden="true">${Array.from({ length: n }, (_, i) =>
+    `<i style="--x:${Math.round(Math.random() * 100)}%;--d:${(Math.random() * 0.6).toFixed(2)}s;--r:${Math.round(Math.random() * 720 - 360)}deg;--c:${colores[i % colores.length]};--t:${(1.6 + Math.random() * 1.4).toFixed(2)}s"></i>`).join("")}</div>`;
+}
+async function retoAcertado(persona) {
+  const st = S.retoInline;
+  const clave = claveReto(st.tipo, persona);
+  const primera = localStorage.getItem(clave) !== "1";
+  localStorage.setItem(clave, "1");
+  if (primera) sumarPuntos(persona.id, PUNTOS_RETO).catch(console.error);
+  const m = S.menus[`${hoy()}_${st.tipo}`], rec = m && receta(m.recetaId);
+  const cuerpo = $("#modal .modal");
+  cuerpo.classList.add("acierto");
+  cuerpo.innerHTML = `${confeti()}
+    <div class="revelado">
+      <div class="revelado-titulo">¡Bien, ${esc(persona.nombre)}!</div>
+      <div class="revelado-sub">${st.tipo === "comida" ? "Hoy KEKOmemos…" : "Hoy KECEnamos…"}</div>
+      <div class="revelado-carta"><div class="revelado-foto">${rec?.foto ? `<img src="${esc(rec.foto)}" alt="">` : `<span>🍽️</span>`}</div></div>
+      <div class="revelado-plato">${esc(m?.titulo || "¡Sorpresa! Aún no está decidido")}</div>
+      ${st.reto.explicacion ? `<p class="revelado-explica">${esc(st.reto.explicacion)}</p>` : ""}
+      ${primera ? `<div class="revelado-puntos">+${PUNTOS_RETO} puntos para la liga</div>` : ""}
+      <button class="btn btn-primario btn-grande" data-accion="cerrar-modal">¡A la mesa!</button>
+    </div>`;
+  IA.sonar?.();
+  S.retoInline = null;
 }
 
 function panelAvisos() {
@@ -610,18 +674,29 @@ function panelRanking(completo = false) {
 
 function vistaHoy() {
   const actual = comidaActual(), otra = actual === "comida" ? "cena" : "comida";
-  const hero = heroReto();
+  if (esMenor()) {
+    return `<div class="hoy">
+      <div class="pila">
+        ${heroReto()}
+        ${retoResuelto(actual) ? tarjetaPlato(actual, true) : ""}
+        ${retoResuelto(otra) ? tarjetaPlato(otra, false) : ""}
+        ${panelTareas()}
+      </div>
+      <div class="pila">${panelAvisos()}${panelRanking()}</div>
+    </div>`;
+  }
   return `<div class="hoy">
     <div class="pila">
-      ${hero || bannerPregunta()}
+      ${bannerPregunta()}
       ${tarjetaPlato(actual, true)}
+      <button class="boton-ideas" data-accion="dame-ideas">${icono("chispa")}<span><b>No sé qué cocinar</b><small>¡Dame ideas!</small></span></button>
       ${tarjetaPlato(otra, false)}
-      ${esAdulto() ? botonCocinarAhora() : ""}
+      ${botonCocinarAhora()}
       ${panelTareas()}
     </div>
     <div class="pila">
       ${panelAvisos()}
-      ${esMenor() ? "" : panelSemanaMini()}
+      ${panelSemanaMini()}
       ${panelRanking()}
     </div>
   </div>`;
@@ -1026,6 +1101,45 @@ async function activarNotificaciones() {
   notificar("¡Notificaciones activadas!");
 }
 
+// ---------- IDEAS ----------
+async function mostrarIdeas(tipo) {
+  const hace7 = iso(masDias(new Date(), -7));
+  const recientes = [...new Set(Object.values(S.menus).filter((m) => m.fecha >= hace7 && m.fecha <= hoy()).map((m) => m.titulo))];
+  const propias = habituales(tipo, 8).filter((r) => !recientes.includes(r.titulo)).slice(0, 4);
+  const hueco = `${hoy()}_${tipo}`;
+  abrirModal(`${cabeceraModal("Ideas para " + (tipo === "comida" ? "comer" : "cenar") + " hoy")}
+    <div class="chips">
+      <button class="chip" data-accion="dame-ideas" data-tipo="comida" aria-pressed="${tipo === "comida"}">Comida</button>
+      <button class="chip" data-accion="dame-ideas" data-tipo="cena" aria-pressed="${tipo === "cena"}">Cena</button>
+    </div>
+    ${propias.length ? `<h3 class="h2">De vuestras recetas</h3>
+    <div class="sugerencias-lista">${propias.map((r) => `<div class="sugerencia">
+      <span class="foto">${fotoHTML(r)}</span><span>${esc(r.titulo)}</span>
+      <span class="fila" style="padding:0 8px 8px;gap:6px"><button class="btn" style="min-height:40px;flex:1" data-accion="asignar-sugerencia" data-hueco="${hueco}" data-id="${r.id}">Para hoy</button></span>
+    </div>`).join("")}</div>` : ""}
+    <h3 class="h2">Ideas nuevas de KeKoMeMos</h3>
+    <div id="ideas-ia" class="ideas"><div class="reto-cargando"><div class="cargando-plato"></div><p>Pensando ideas con lo que tenéis en casa…</p></div></div>`, true);
+  try {
+    const ideas = await IA.ideasCocina({
+      tipo, recientes,
+      hayEnCasa: S.despensa.filter((x) => x.estado === "hay").map((x) => x.nombre),
+      conocidas: S.recetas.map((r) => r.titulo)
+    });
+    const caja = $("#ideas-ia");
+    if (!caja) return;
+    caja.innerHTML = ideas.map((i) => `<div class="idea tarjeta">
+      <div class="etiqueta">${esc(i.motivo || "")}${i.minutos ? ` · ${esc(i.minutos)} min` : ""}</div>
+      <strong>${esc(i.titulo)}</strong>
+      <p class="suave">${esc(i.descripcion || "")}</p>
+      <button class="btn btn-primario" data-accion="idea-crear" data-titulo="${esc(i.titulo)}" data-tipo="${tipo}">${icono("chispa")}¡Esta! Crear receta para hoy</button>
+    </div>`).join("") + `<button class="btn btn-linea" data-accion="dame-ideas" data-tipo="${tipo}">Otras ideas</button>`;
+  } catch (e) {
+    console.error(e);
+    const caja = $("#ideas-ia");
+    if (caja) caja.innerHTML = `<p class="suave">${esc(errorIA(e, "No se han podido pensar ideas"))}</p>`;
+  }
+}
+
 // ---------- BÚSQUEDA EN INTERNET ----------
 async function buscarPaginas(consulta) {
   const { enlaces, sugerencias } = await IA.buscarEnInternet(consulta);
@@ -1088,47 +1202,6 @@ function modalElegirReceta(titulo, alElegir, huecoId = null) {
 }
 
 // Reto del menú: KeKoMeMos pone un acertijo y, al acertar, desvela la comida
-async function modalReto(persona = yoActivo()) {
-  const e = edad(persona.nacimiento) ?? 16;
-  abrirModal(`${cabeceraModal("Pregunta a KeKoMeMos")}
-    <p class="suave">${esc(persona.nombre)}, ¿quieres saber qué hay de comer? Primero, un reto…</p>
-    <div class="reto-pregunta suave">KeKoMeMos está pensando un acertijo…</div>`);
-  const r = await IA.generarAcertijo(e);
-  if ($("#modal").hidden) return;
-  abrirModal(`${cabeceraModal("Pregunta a KeKoMeMos")}
-    <p class="suave">${esc(persona.nombre)}, acierta y descubre el menú (+${PUNTOS_RETO} puntos).</p>
-    <div class="reto-pregunta">${esc(r.pregunta)}</div>
-    <div class="reto-opciones">${r.opciones.map((o) => `<button class="btn" data-respuesta="${esc(o)}">${esc(o)}</button>`).join("")}</div>`);
-  $(".reto-opciones").addEventListener("click", async (ev) => {
-    const b = ev.target.closest("[data-respuesta]");
-    if (!b || b.disabled) return;
-    if (String(b.dataset.respuesta) === String(r.correcta)) {
-      const clave = claveReto(comidaActual(), persona);
-      const primera = localStorage.getItem(clave) !== "1";
-      localStorage.setItem(clave, "1");
-      if (primera) await sumarPuntos(persona.id, PUNTOS_RETO).catch(console.error);
-      revelarMenu(persona, r.explicacion, primera);
-      render();
-    } else {
-      b.disabled = true;
-      b.classList.add("mal");
-      b.textContent = "¡Casi!";
-      setTimeout(() => modalReto(persona), 1000);
-    }
-  });
-}
-function revelarMenu(persona, explicacion, conPuntos) {
-  const plato = (tipo) => {
-    const m = S.menus[`${hoy()}_${tipo}`], r = m && receta(m.recetaId);
-    return `<div class="tarjeta plato compacto"><div class="foto">${fotoHTML(r, "")}</div><div class="plato-cuerpo">
-      <div class="etiqueta">${tipo === "comida" ? "Comida" : "Cena"}</div><div class="plato-titulo">${esc(m?.titulo || "Sorpresa (aún sin decidir)")}</div></div></div>`;
-  };
-  abrirModal(`${cabeceraModal(`¡Bien, ${persona.nombre}!`)}
-    ${explicacion ? `<p class="suave">${esc(explicacion)}</p>` : ""}
-    ${conPuntos ? `<p><b>+${PUNTOS_RETO} puntos</b> para la liga.</p>` : ""}
-    ${plato("comida")}${plato("cena")}
-    <button class="btn btn-primario btn-grande" data-accion="cerrar-modal">¡Genial!</button>`);
-}
 function elegirPeque() {
   const menores = S.miembros.filter((m) => m.rol === "menor");
   if (!menores.length) return notificar("No hay menores en el hogar todavía.");
@@ -1136,7 +1209,7 @@ function elegirPeque() {
     <div class="selector-cocinero">${menores.map((m) => `<button data-peque="${m.id}">${avatar(m, 84)}<span>${esc(m.nombre)}</span></button>`).join("")}</div>`);
   $(".selector-cocinero").addEventListener("click", (e) => {
     const b = e.target.closest("[data-peque]");
-    if (b) modalReto(miembro(b.dataset.peque));
+    if (b) abrirReto(miembro(b.dataset.peque));
   });
 }
 function bannerPregunta() {
@@ -1227,7 +1300,7 @@ const ACCIONES = {
       await updateDoc(doc(db, "hogares", S.hogarId), { cocinaHoy: uid === S.hogar.cocineraHabitual ? deleteField() : { fecha: hoy(), uid } });
     });
   },
-  reto: () => modalReto(yoActivo()),
+  reto: () => abrirReto(),
   "reto-tablet": elegirPeque,
   "ver-receta": (d) => { if (!d.id) return ACCIONES.ir({ vista: "recetas" }); S.vista = "receta"; S.param = d.id; render(); window.scrollTo(0, 0); },
   "nueva-receta": (d) => { cerrarModal(); S.asignarA = d.hueco || null; S.vista = "editor"; S.param = null; S.borrador = null; S.editorFoto = null; render(); window.scrollTo(0, 0); },
@@ -1424,26 +1497,35 @@ const ACCIONES = {
   },
   "quien-soy": () => (esTablet() ? preguntarQuienEres() : ACCIONES.ir({ vista: "yo" })),
   "cambiar-persona": () => preguntarQuienEres(),
+  "abrir-reto": async (_, el) => {
+    el?.classList.add("pulsado");
+    navigator.vibrate?.(40);
+    await new Promise((ok) => setTimeout(ok, 180));
+    el?.classList.remove("pulsado");
+    abrirReto();
+  },
+  "dame-ideas": (d) => mostrarIdeas(d.tipo || comidaActual()),
+  "idea-crear": (d, el) => {
+    S.asignarA = `${hoy()}_${d.tipo}`;
+    const fd = new FormData(); fd.set("pedido", d.titulo); fd.set("categoria", "quiero_probar");
+    return FORMS["pedir-receta"](fd, el.closest(".idea"));
+  },
+  "ver-pista": () => { if (S.retoInline) { S.retoInline.pistaVista = true; pintarReto(miembro(S.retoInline.personaId)); } },
   "responder-reto": async (d) => {
     const st = S.retoInline;
     if (!st?.reto) return;
+    const persona = miembro(st.personaId);
+    if (Number(localStorage.getItem(claveBomba(st.tipo, persona)) || 0) > Date.now()) return;
     const i = Number(d.i);
-    if (String(st.reto.opciones[i]) === String(st.reto.correcta)) {
-      const persona = yoActivo();
-      const clave = claveReto(st.tipo, persona);
-      const primera = localStorage.getItem(clave) !== "1";
-      localStorage.setItem(clave, "1");
-      S.retoInline = null;
-      if (primera) await sumarPuntos(persona.id, PUNTOS_RETO).catch(console.error);
-      const m = S.menus[`${hoy()}_${st.tipo}`];
-      notificar(`¡Bien, ${persona.nombre}! ${m ? `Hoy toca ${m.titulo}` : "Aún no está decidido"}${primera ? ` · +${PUNTOS_RETO} puntos` : ""}`);
-      render();
-    } else {
-      st.fallos = [...(st.fallos || []), i];
-      render();
-    }
+    if (String(st.reto.opciones[i]) === String(st.reto.correcta)) return retoAcertado(persona);
+    st.fallos.push(i);
+    localStorage.setItem(claveBomba(st.tipo, persona), String(Date.now() + SEGUNDOS_BOMBA * 1000));
+    const caja = $("#modal .modal");
+    caja?.classList.remove("temblor"); void caja?.offsetWidth; caja?.classList.add("temblor");
+    navigator.vibrate?.([120, 60, 120]);
+    pintarReto(persona);
   },
-  "otro-reto": () => { S.retoInline = null; render(); },
+
   "fotos-pendientes": async () => {
     const n = S.recetas.filter((r) => !r.foto).length;
     if (!n) return notificar("Todas las recetas tienen foto.");
