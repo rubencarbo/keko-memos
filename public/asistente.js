@@ -251,6 +251,13 @@ Comprueba tú mismo que la respuesta es correcta antes de responder.
 Devuelve JSON: {"pregunta": string, "opciones": [4 strings], "correcta": string idéntica a una opción, "pista": string corta que ayude sin desvelar, "explicacion": string corta}`],
       "Eres KeKoMeMos, un creador de acertijos premium (estilo Profesor Layton, Paul Sloane y Mensa) para adolescentes que quieren descubrir el menú del día.");
     if (!r?.pregunta || !Array.isArray(r.opciones) || r.opciones.length < 3 || !r.opciones.includes(r.correcta)) throw new Error("acertijo mal formado");
+    // Comprobación a ciegas: la IA resuelve el reto sin ver la respuesta; si no coincide, se descarta
+    const sol = await pedirJSON([`Resuelve este reto con cuidado, razonando paso a paso por dentro.
+Reto: ${r.pregunta}
+Opciones: ${r.opciones.map((o, i) => `${i + 1}) ${o}`).join("  ")}
+Devuelve JSON: {"respuesta": "el texto exacto de la opción correcta", "segura": true|false}`], "Eres un experto en acertijos, lógica y cultura general. Eres riguroso.");
+    const limpio = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+    if (!sol?.segura || limpio(sol.respuesta) !== limpio(r.correcta)) throw new Error("reto dudoso descartado");
     return { categoria, pregunta: r.pregunta, opciones: barajar([...r.opciones]), correcta: r.correcta, pista: r.pista || "", explicacion: r.explicacion || "", ia: true };
   } catch (e) {
     console.warn("Reto del banco:", e);

@@ -266,6 +266,15 @@ if (!EN_VIVO) {
     await m.locator(".modal-reto .reto-opciones").waitFor({ timeout: 30000 });
     await m.waitForTimeout(800);
     await captura(m, "movil-menor-reto");
+    // no se puede saltar: al salir y volver a entrar, el mismo reto vuelve a aparecer
+    const pregunta = await m.locator(".modal-reto .reto-pregunta").innerText();
+    await m.waitForTimeout(1500);
+    await m.reload();
+    await m.locator(".modal-reto .reto-pregunta").waitFor({ timeout: 30000 });
+    if ((await m.locator(".modal-reto .reto-pregunta").innerText()) !== pregunta) throw new Error("al volver a entrar ha cambiado el reto");
+    await m.keyboard.press("Escape");
+    await m.mouse.click(5, 5);
+    if (!(await m.locator(".modal-reto").count())) throw new Error("el reto se ha podido cerrar sin acertar");
     let bomba = false;
     for (let i = 0; i < 30; i++) {
       if (await m.getByText("¡Bien, Hugo!").count()) break;
@@ -275,7 +284,9 @@ if (!EN_VIVO) {
       await m.waitForTimeout(1000);
     }
     await m.getByText("¡Bien, Hugo!").waitFor({ timeout: 5000 });
-    await m.waitForTimeout(1200);
+    await m.waitForTimeout(800);
+    await captura(m, "movil-menor-regalo");
+    await m.waitForTimeout(1800);
     await captura(m, "movil-menor-revelado");
     await m.getByRole("button", { name: "¡A la mesa!" }).click();
     await m.locator(".hero-keko").waitFor({ state: "detached", timeout: 5000 });
