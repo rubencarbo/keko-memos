@@ -38,7 +38,9 @@ service cloud.firestore {
         // Cada uno edita su perfil (sin cambiarse el rol); los adultos pueden editar a todos
         allow update: if esAdulto()
           || (yoUid() == uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'codigo']));
-        allow delete: if esAdmin() || yoUid() == uid;
+        // Borrar (o fusionar duplicados): administrador, cualquier adulto o uno mismo; nunca al administrador
+        allow delete: if (esAdulto() || yoUid() == uid)
+          && uid != get(/databases/$(database)/documents/hogares/$(hogar)).data.admin;
       }
 
       match /recetas/{id} {

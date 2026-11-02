@@ -110,3 +110,13 @@ test("los avisos se firman con el propio usuario", async () => {
 test("cualquier miembro registra tareas de casa", async () => {
   await assertSucceeds(setDoc(doc(collection(como("leo"), "hogares", H, "tareas")), { tarea: "poner_mesa", uid: "leo", por: "leo", fecha: "2026-10-20" }));
 });
+
+test("un adulto puede borrar un perfil duplicado, pero nadie al administrador", async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), "hogares", H, "miembros", "javi"), { nombre: "Javi", rol: "adulto", codigo: "ABC234" });
+    await setDoc(doc(c.firestore(), "hogares", H, "miembros", "leo2"), { nombre: "Leo", rol: "menor", codigo: "ABC234" });
+  });
+  await assertSucceeds(deleteDoc(doc(como("javi"), "hogares", H, "miembros", "leo2")));
+  await assertFails(deleteDoc(doc(como("javi"), "hogares", H, "miembros", "ana")));
+  await assertFails(deleteDoc(doc(como("leo"), "hogares", H, "miembros", "javi")));
+});

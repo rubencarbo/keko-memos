@@ -543,6 +543,7 @@ function habituales(tipo, n = 4) {
   Object.values(S.menus).forEach((m) => { if (m.recetaId) cuenta[m.recetaId] = (cuenta[m.recetaId] || 0) + (m.tipo === tipo ? 2 : 1); });
   return S.recetas
     .filter((r) => tieneTipo(r, tipo) && !(r.tipos?.length && r.tipos.every((t) => ["postre", "merienda", "desayuno"].includes(t))))
+    .filter((r) => !repetidaCercaSin(r.id, hoy(), `${hoy()}_${tipo}`, {}))
     .map((r) => ({ r, p: (cuenta[r.id] || 0) + (r.veces || 0) + (r.categoria === "favoritos" ? 1.5 : 0) + Math.random() * 0.5 }))
     .sort((a, b) => b.p - a.p).slice(0, n).map((x) => x.r);
 }
@@ -797,6 +798,30 @@ function botonCocinarAhora() {
   const r = m && receta(m.recetaId);
   if (!r) return "";
   return `<button class="btn btn-oscuro btn-grande" data-accion="cocinar" data-id="${r.id}">${icono("mic")}Empezar a cocinar · manos libres</button>`;
+}
+
+// ---------- PLANIFICACIÓN AUTOMÁTICA ----------
+const DIAS_SIN_REPETIR = 4;
+// Elige una receta para un hueco: del tipo correcto (comida/cena), sin repetir en ±4 días, ponderada
+function elegirParaHueco(huecoId, extra = {}, pool = S.recetas) {
+  const [fecha, tipo] = huecoId.split("_");
+  const finde = [0, 6].includes(deIso(fecha).getDay());
+  const otros = { ...extra };
+  delete otros[huecoId];
+  const candidatas = pool.filter((r) => tieneTipo(r, tipo) && !(r.tipos?.length && r.tipos.every((t) => ["postre", "merienda", "desayuno", "entrante"].includes(t))))
+    .filter((r) => !repetidaCercaSin(r.id, fecha, huecoId, otros));
+  if (!candidatas.length) return null;
+  const peso = (r) => (r.categoria === "favoritos" ? 4 : r.categoria === "quiero_probar" ? 1.5 : finde ? 3 : 0.4) + Math.min(r.veces || 0, 6) * 0.3;
+  const total = candidatas.reduce((a, r) => a + peso(r), 0);
+  let x = Math.random() * total;
+  for (const r of candidatas) { x -= peso(r); if (x <= 0) return r; }
+  return candidatas[0];
+}
+function repetidaCercaSin(recetaId, fecha, huecoId, extra) {
+  const t = deIso(fecha).getTime();
+  const todos = { ...S.menus, ...extra };
+  delete todos[huecoId];
+  return Object.values(todos).some((m) => m?.recetaId === recetaId && Math.abs(deIso(m.fecha).getTime() - t) < DIAS_SIN_REPETIR * 86400000);
 }
 
 // ---------- SEMANA ----------
@@ -1076,6 +1101,21 @@ function vistaYo() {
   </div>`;
 }
 
+async function fusionarMiembros(dup, keep) {
+  const puntos = { ...(keep.puntos || {}) };
+  Object.entries(dup.puntos || {}).forEach(([k, v]) => { puntos[k] = (puntos[k] || 0) + v; });
+  const lote = writeBatch(db);
+  lote.update(ref$("miembros", keep.id), {
+    puntos,
+    resueltos: { ...(dup.resueltos || {}), ...(keep.resueltos || {}) },
+    tokens: [...new Set([...(keep.tokens || []), ...(dup.tokens || [])])],
+    foto: keep.foto || dup.foto || null,
+    nacimiento: keep.nacimiento || dup.nacimiento || ""
+  });
+  lote.delete(ref$("miembros", dup.id));
+  if (S.hogar.cocineraHabitual === dup.id) lote.update(doc(db, "hogares", S.hogarId), { cocineraHabitual: keep.id });
+  await lote.commit();
+}
 function duplicados() {
   const vistos = {}, rep = new Set();
   S.miembros.forEach((m) => { const k = normal(m.nombre); if (vistos[k]) rep.add(m.nombre); vistos[k] = true; });
@@ -1101,7 +1141,10 @@ function panelHogar() {
       <small>Aparece por defecto cada día. Si otra persona cocina, se cambia solo para ese día desde «Hoy».</small>
     </label>
     <h3 class="h2">Miembros</h3>
-    ${duplicados().length ? `<div class="banner"><span>Parece que hay personas repetidas: ${esc(duplicados().join(", "))}. Usa «Fusionar…» para juntarlas.</span></div>` : ""}
+    ${duplicados().length ? `<div class="aviso-duplicados">
+      <b>Hay personas repetidas.</b> Elige con qué perfil quedarte y el resto se junta en él:
+      <div class="fila">${duplicados().map((n) => `<button class="btn btn-primario" data-accion="resolver-duplicado" data-nombre="${esc(n)}">Arreglar «${esc(n)}»</button>`).join("")}</div>
+    </div>` : ""}
     <ul class="lista">${S.miembros.map((m) => `<li>
       ${avatar(m, 40)}
       <span class="crece">${esc(m.nombre)}${m.nacimiento ? ` <span class="suave">· ${edad(m.nacimiento)} años</span>` : ""}</span>
@@ -1109,7 +1152,8 @@ function panelHogar() {
         <option value="adulto" ${m.rol === "adulto" ? "selected" : ""}>Adulto</option>
         <option value="menor" ${m.rol === "menor" ? "selected" : ""}>Menor</option>
       </select>
-      ${esAdmin() && m.id !== h.admin ? `<button class="btn" style="min-height:40px" data-accion="fusionar" data-id="${m.id}">Fusionar…</button><button class="btn-x" data-accion="quitar-miembro" data-id="${m.id}" aria-label="Quitar a ${esc(m.nombre)}">×</button>` : ""}
+      ${esAdulto() && m.id !== h.admin ? `<button class="btn" style="min-height:40px" data-accion="fusionar" data-id="${m.id}">Fusionar…</button>` : ""}
+      ${esAdmin() && m.id !== h.admin ? `<button class="btn-x" data-accion="quitar-miembro" data-id="${m.id}" aria-label="Quitar a ${esc(m.nombre)}">×</button>` : ""}
     </li>`).join("")}</ul>
   </section>`;
 }
@@ -1129,6 +1173,8 @@ async function registrarTarea(tareaId, uid) {
 }
 async function asignarMenu(huecoId, r) {
   const [fecha, tipo] = huecoId.split("_");
+  if (repetidaCercaSin(r.id, fecha, huecoId, {})) notificar(`Ojo: ${r.titulo} ya está en el menú a menos de ${DIAS_SIN_REPETIR} días.`);
+  if (r.tipos?.length && !r.tipos.includes(tipo)) notificar(`Ojo: ${r.titulo} está marcada como ${r.tipos.join("/")}, no como ${tipo}.`);
   updateDoc(ref$("recetas", r.id), { veces: increment(1) }).catch(() => {});
   await setDoc(ref$("menus", huecoId), { fecha, tipo, recetaId: r.id, titulo: r.titulo });
 }
@@ -1343,6 +1389,27 @@ const ACCIONES = {
   "union-nuevo": () => { S.union.paso = "nuevo"; mostrarEntrada("unirse"); },
   "union-elegir": () => { S.union.paso = "elegir"; mostrarEntrada("unirse"); },
   "union-atras": () => { S.union = null; mostrarEntrada("unirse"); },
+  "resolver-duplicado": (d) => {
+    const iguales = S.miembros.filter((m) => normal(m.nombre) === normal(d.nombre));
+    const info = (m) => {
+      const pts = Object.values(m.puntos || {}).reduce((a, b) => a + b, 0);
+      return `${m.rol === "adulto" ? "Adulto" : "Menor"}${m.id === S.hogar.admin ? " · administrador" : ""}${m.id === S.user.uid ? " · este dispositivo" : ""} · ${pts} pts${m.nacimiento ? " · " + m.nacimiento.split("-").reverse().join("/") : " · sin fecha"}`;
+    };
+    abrirModal(`${cabeceraModal("¿Con qué «" + d.nombre + "» nos quedamos?")}
+      <p class="suave" style="margin:0">Los demás se juntan en el elegido (se suman sus puntos y retos) y se borran.</p>
+      <ul class="lista">${iguales.map((m) => `<li>${avatar(m, 44)}<span class="crece"><b>${esc(m.nombre)}</b><br><small class="suave">${esc(info(m))}</small></span>
+        <button class="btn btn-primario" data-accion="quedarse-con" data-id="${m.id}" data-nombre="${esc(d.nombre)}">Quedarme con este</button></li>`).join("")}</ul>`);
+  },
+  "quedarse-con": async (d) => {
+    const keep = miembro(d.id);
+    const otros = S.miembros.filter((m) => m.id !== keep.id && normal(m.nombre) === normal(d.nombre));
+    const admin = otros.find((m) => m.id === S.hogar.admin);
+    if (admin) return notificar(`Quédate con el perfil de administrador (${admin.nombre}): el administrador no se puede borrar.`);
+    if (!confirmar(`¿Juntar ${otros.length} perfil(es) repetido(s) en este «${keep.nombre}»?`)) return;
+    for (const dup of otros) await fusionarMiembros(dup, keep);
+    cerrarModal();
+    notificar(`Listo: un solo «${keep.nombre}»`);
+  },
   fusionar: (d) => {
     const dup = miembro(d.id);
     const otros = S.miembros.filter((m) => m.id !== dup.id);
@@ -1352,20 +1419,9 @@ const ACCIONES = {
   },
   "fusionar-con": async (d) => {
     const dup = miembro(d.dup), keep = miembro(d.id);
+    if (dup.id === S.hogar.admin) return notificar("El administrador no se puede borrar: fusiona el otro perfil dentro de este.");
     if (!confirmar(`¿Juntar «${dup.nombre}» dentro de «${keep.nombre}»? No se puede deshacer.`)) return;
-    const puntos = { ...(keep.puntos || {}) };
-    Object.entries(dup.puntos || {}).forEach(([k, v]) => { puntos[k] = (puntos[k] || 0) + v; });
-    const lote = writeBatch(db);
-    lote.update(ref$("miembros", keep.id), {
-      puntos,
-      resueltos: { ...(dup.resueltos || {}), ...(keep.resueltos || {}) },
-      tokens: [...new Set([...(keep.tokens || []), ...(dup.tokens || [])])],
-      foto: keep.foto || dup.foto || null,
-      nacimiento: keep.nacimiento || dup.nacimiento || ""
-    });
-    lote.delete(ref$("miembros", dup.id));
-    if (S.hogar.cocineraHabitual === dup.id) lote.update(doc(db, "hogares", S.hogarId), { cocineraHabitual: keep.id });
-    await lote.commit();
+    await fusionarMiembros(dup, keep);
     cerrarModal();
     notificar(`${dup.nombre} unido a ${keep.nombre}`);
   },
@@ -1470,9 +1526,8 @@ const ACCIONES = {
   },
   sorpresa: async (d) => {
     const pool = S.recetas.filter((r) => r.categoria === "quiero_probar" || r.categoria === "especiales");
-    const lista = pool.length ? pool : S.recetas;
-    if (!lista.length) return notificar("Primero añade alguna receta.");
-    const r = lista[Math.floor(Math.random() * lista.length)];
+    const r = elegirParaHueco(d.hueco, {}, pool.length ? pool : S.recetas) || elegirParaHueco(d.hueco);
+    if (!r) return notificar("No hay recetas de ese tipo sin repetir en estos días.");
     await asignarMenu(d.hueco, r);
     notificar(`Sorpresa: ${r.titulo}`);
   },
@@ -1508,7 +1563,7 @@ const ACCIONES = {
   },
   "iniciar-intercambio": (d) => { cerrarModal(); S.intercambio = d.hueco; render(); },
   "quitar-menu": async (d) => { cerrarModal(); await deleteDoc(ref$("menus", d.hueco)); },
-  "sugerir-semana": async (_, el) => {
+  "sugerir-semana": async () => {
     if (!S.recetas.length) return notificar("Primero añade algunas recetas.");
     const lunes = masDias(lunesDe(new Date()), S.semana * 7);
     const huecos = [];
@@ -1518,14 +1573,21 @@ const ACCIONES = {
       ["comida", "cena"].forEach((t) => { if (!S.menus[`${f}_${t}`]) huecos.push(`${f}_${t}`); });
     }
     if (!huecos.length) return notificar("No hay huecos libres esta semana.");
-    el.disabled = true; el.textContent = "Pensando el menú…";
-    try {
-      const asign = await IA.sugerirSemana(S.recetas, huecos);
-      const lote = writeBatch(db);
-      asign.forEach((a) => { const r = receta(a.recetaId); const [fecha, tipo] = a.hueco.split("_"); lote.set(ref$("menus", a.hueco), { fecha, tipo, recetaId: r.id, titulo: r.titulo }); });
-      await lote.commit();
-      notificar(`${asign.length} huecos rellenados`);
-    } catch (e) { console.error(e); notificar(errorIA(e, "No se han podido rellenar los huecos")); render(); }
+    const nuevos = {};
+    const sinHueco = [];
+    huecos.forEach((h) => {
+      const r = elegirParaHueco(h, nuevos);
+      const [fecha, tipo] = h.split("_");
+      if (r) nuevos[h] = { fecha, tipo, recetaId: r.id, titulo: r.titulo };
+      else sinHueco.push(h);
+    });
+    const lote = writeBatch(db);
+    Object.entries(nuevos).forEach(([h, m]) => lote.set(ref$("menus", h), m));
+    await lote.commit();
+    const n = Object.keys(nuevos).length;
+    notificar(sinHueco.length
+      ? `${n} huecos rellenados. ${sinHueco.length} se quedan vacíos: no hay más recetas de ese tipo sin repetir en ${DIAS_SIN_REPETIR} días.`
+      : `${n} huecos rellenados, sin repetir platos en ${DIAS_SIN_REPETIR} días`);
   },
   "compra-semana": async (_, el) => {
     const desde = S.vista === "semana" ? masDias(lunesDe(new Date()), S.semana * 7) : new Date();

@@ -162,6 +162,23 @@ if (!EN_VIVO) {
     await t.getByText("Intercambiados").waitFor();
   });
 
+  await paso("Menús: rellenar huecos sin repetir plato en 4 días", async () => {
+    await t.getByRole("button", { name: "Semana siguiente" }).click();
+    await t.getByRole("button", { name: /Rellenar huecos/ }).click();
+    await t.waitForTimeout(2500);
+    await captura(t, "tablet-semana-rellenada");
+    const filas = await t.locator(".semana .dia").evaluateAll((ds) => ds.map((d, i) => ({ i, platos: [...d.querySelectorAll(".hueco span")].map((x) => x.textContent.trim()) })));
+    const ultima = {};
+    for (const { i, platos } of filas) {
+      for (const p of platos) {
+        if (!p || p.startsWith("+") || p === "—") continue;
+        if (ultima[p] !== undefined && i - ultima[p] < 4) throw new Error(`«${p}» se repite a los ${i - ultima[p]} días`);
+        ultima[p] = i;
+      }
+    }
+    await t.getByRole("button", { name: "Semana anterior" }).click();
+  });
+
   await paso("Menús: vista mensual", async () => {
     await t.locator(".chips").getByRole("button", { name: "Mes" }).click();
     await t.locator(".mes .mes-dia").first().waitFor();

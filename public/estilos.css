@@ -738,3 +738,5 @@ fieldset.tipos legend { padding: 0; margin-bottom: 6px; }
 .estrellitas i:nth-child(13) { top: 24%; left: 30%; animation-delay: 2.6s; } .estrellitas i:nth-child(14) { top: 76%; left: 62%; animation-delay: 2.7s; }
 @keyframes titilar { 0%, 100% { opacity: 0; transform: scale(.4) rotate(0); } 50% { opacity: 1; transform: scale(1.4) rotate(45deg); } }
 @media (prefers-reduced-motion: reduce) { .sorpresa-rayos, .estallido, .estrellitas, .regalo { display: none; } .sorpresa-carta, .sorpresa-puntos { animation: none; } }
+
+.aviso-duplicados { background: #FFF4E5; border: 2px solid #F2A33A; color: #5a3500; border-radius: var(--radio-boton); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
