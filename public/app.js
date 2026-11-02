@@ -10,7 +10,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  doc, collection, getDoc, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit,
+  doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, onSnapshot, query, where, orderBy, limit,
   serverTimestamp, increment, writeBatch, arrayUnion, deleteField, connectFirestoreEmulator
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-storage.js";
@@ -97,6 +97,8 @@ const esAdulto = () => yoActivo()?.rol === "adulto";
 const esMenor = () => yoActivo()?.rol === "menor";
 const esAdmin = () => S.hogar?.admin === S.user?.uid;
 const puedeOrdenarFamilia = () => esAdulto() || esAdmin();
+// Reinicios: solo la cuenta titular del hogar (Rubén) o un adulto llamado Rubén
+const puedeReiniciar = () => esAdmin() || (esAdulto() && normal(yoActivo()?.nombre) === "ruben");
 
 // ---------- UTILIDADES ----------
 const $ = (s, r = document) => r.querySelector(s);
@@ -307,6 +309,15 @@ function datosMiembro(f, codigo) {
 }
 
 const FORMULARIOS = {
+  async reiniciar(f, form) {
+    if (String(f.get("confirmar") || "").trim().toUpperCase() !== "BORRAR") return notificar("Escribe BORRAR para confirmar.");
+    const b = form.querySelector("button"); b.disabled = true; b.textContent = "Reiniciando…";
+    try {
+      const msg = await reiniciar(form.dataset.que);
+      cerrarModal();
+      notificar(msg);
+    } catch (e) { console.error(e); notificar("No se ha podido reiniciar: " + (e.code || e.message)); b.disabled = false; b.textContent = "Reiniciar"; }
+  },
   async "union-codigo"(f, form) {
     const codigo = String(f.get("codigo") || "").trim().toUpperCase();
     const b = form.querySelector("button"); b.disabled = true; b.textContent = "Comprobando…";
@@ -1095,6 +1106,7 @@ function vistaYo() {
     <div class="pila">
       ${panelRanking(true)}
       ${puedeOrdenarFamilia() ? panelHogar() : ""}
+      ${puedeReiniciar() ? panelReinicio() : ""}
       ${esAdulto() ? `<section class="tarjeta seccion pila"><h2 class="h2">KeKoMeMos (IA ${IA.CON_GEMINI ? "Gemini" : "gratuita · Cloudflare"})</h2>
         <p class="suave" style="margin:0">La IA escribe recetas, crea las fotos de los platos, pone los acertijos, rellena la semana, calcula la compra y te ayuda en el modo cocina.</p>
         <div class="fila"><button class="btn" data-accion="probar-ia">Probar la IA</button>
@@ -1119,6 +1131,63 @@ async function fusionarMiembros(dup, keep) {
   lote.delete(ref$("miembros", dup.id));
   if (S.hogar.cocineraHabitual === dup.id) lote.update(doc(db, "hogares", S.hogarId), { cocineraHabitual: keep.id });
   await lote.commit();
+}
+// ---------- REINICIOS ----------
+const REINICIOS = {
+  puntos: { titulo: "Puntos y tareas", texto: "Pone a 0 los puntos de todos y borra el historial de tareas." },
+  menus: { titulo: "Menús planificados", texto: "Quita todas las comidas y cenas del calendario (las recetas se quedan)." },
+  recetas: { titulo: "Recetas", texto: "Borra todas las recetas. Los menús que las usaban se quedan sin receta." },
+  compra: { titulo: "Lista de la compra", texto: "Vacía la lista de la compra y lo que hay en casa." },
+  avisos: { titulo: "Avisos", texto: "Borra todos los avisos enviados." },
+  retos: { titulo: "Retos de los chicos", texto: "Olvida los retos resueltos y los que estaban a medias." },
+  usuarios: { titulo: "Usuarios", texto: "Borra a todos los miembros menos a ti. Tendrán que volver a unirse con el código." }
+};
+function panelReinicio() {
+  return `<section class="tarjeta seccion pila zona-reinicio">
+    <h2 class="h2">Reiniciar</h2>
+    <p class="suave" style="margin:0">Para empezar de cero alguna parte de la app. Se pide confirmación y no se puede deshacer.</p>
+    <div class="reinicios">${Object.entries(REINICIOS).map(([id, r]) => `<button class="btn btn-peligro" data-accion="reiniciar" data-que="${id}"><span><b>${r.titulo}</b><small>${r.texto}</small></span></button>`).join("")}</div>
+  </section>`;
+}
+async function borrarColeccion(nombre, filtro = () => true) {
+  const qs = await getDocs(col$(nombre));
+  const docs = qs.docs.filter(filtro);
+  for (let i = 0; i < docs.length; i += 400) {
+    const lote = writeBatch(db);
+    docs.slice(i, i + 400).forEach((d) => lote.delete(d.ref));
+    await lote.commit();
+  }
+  return docs.length;
+}
+async function reiniciar(que) {
+  const yo = S.user.uid;
+  if (que === "puntos") {
+    const lote = writeBatch(db);
+    S.miembros.forEach((m) => lote.update(ref$("miembros", m.id), { puntos: {} }));
+    await lote.commit();
+    return `${await borrarColeccion("tareas")} tareas borradas y puntos a 0`;
+  }
+  if (que === "menus") return `${await borrarColeccion("menus")} comidas/cenas quitadas`;
+  if (que === "recetas") return `${await borrarColeccion("recetas")} recetas borradas`;
+  if (que === "compra") return `${await borrarColeccion("despensa")} productos borrados`;
+  if (que === "avisos") return `${await borrarColeccion("avisos")} avisos borrados`;
+  if (que === "retos") {
+    const lote = writeBatch(db);
+    S.miembros.forEach((m) => lote.update(ref$("miembros", m.id), { resueltos: deleteField(), reto: deleteField() }));
+    await lote.commit();
+    Object.keys(localStorage).filter((k) => k.startsWith("reto-") || k.startsWith("bomba-")).forEach((k) => localStorage.removeItem(k));
+    return "Retos reiniciados";
+  }
+  if (que === "usuarios") {
+    const otros = S.miembros.filter((m) => m.id !== yo && m.id !== S.hogar.admin);
+    const lote = writeBatch(db);
+    otros.forEach((m) => lote.delete(ref$("miembros", m.id)));
+    if (S.hogar.cocineraHabitual && otros.some((m) => m.id === S.hogar.cocineraHabitual)) lote.update(doc(db, "hogares", S.hogarId), { cocineraHabitual: yo, cocinaHoy: deleteField() });
+    await lote.commit();
+    if (esTablet()) fijarActivo(yo);
+    return `${otros.length} miembros borrados`;
+  }
+  throw new Error("Opción desconocida");
 }
 function duplicados() {
   const vistos = {}, rep = new Set();
@@ -1393,6 +1462,16 @@ const ACCIONES = {
   "union-nuevo": () => { S.union.paso = "nuevo"; mostrarEntrada("unirse"); },
   "union-elegir": () => { S.union.paso = "elegir"; mostrarEntrada("unirse"); },
   "union-atras": () => { S.union = null; mostrarEntrada("unirse"); },
+  reiniciar: (d) => {
+    const r = REINICIOS[d.que];
+    abrirModal(`${cabeceraModal("Reiniciar: " + r.titulo)}
+      <p>${esc(r.texto)}</p>
+      <p class="suave" style="margin:0">No se puede deshacer. Escribe <b>BORRAR</b> para confirmar.</p>
+      <form class="pila" data-form="reiniciar" data-que="${d.que}">
+        <input name="confirmar" class="entrada-texto" autocomplete="off" autocapitalize="characters" placeholder="BORRAR" required>
+        <button class="btn btn-peligro btn-grande">Reiniciar ${esc(r.titulo.toLowerCase())}</button>
+      </form>`);
+  },
   "resolver-duplicado": (d) => {
     const iguales = S.miembros.filter((m) => normal(m.nombre) === normal(d.nombre));
     const info = (m) => {

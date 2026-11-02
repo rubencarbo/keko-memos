@@ -270,6 +270,16 @@ if (!EN_VIVO) {
     }
   });
 
+  await paso("Rubén: panel «Reiniciar» (prueba con los avisos)", async () => {
+    await t.locator("#nav").getByRole("button", { name: "Yo" }).click();
+    await t.locator(".zona-reinicio").scrollIntoViewIfNeeded();
+    await captura(t, "tablet-reiniciar");
+    await t.locator(".zona-reinicio").getByRole("button", { name: /Avisos/ }).click();
+    await t.locator('#modal input[name="confirmar"]').fill("BORRAR");
+    await t.getByRole("button", { name: /Reiniciar avisos/ }).click();
+    await t.getByText(/avisos borrados/).waitFor();
+  });
+
   // ---------- MENOR EN EL MÓVIL ----------
   const movil = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-ES", timezoneId: "Europe/Madrid" });
   const m = await movil.newPage();

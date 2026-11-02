@@ -740,3 +740,10 @@ fieldset.tipos legend { padding: 0; margin-bottom: 6px; }
 @media (prefers-reduced-motion: reduce) { .sorpresa-rayos, .estallido, .estrellitas, .regalo { display: none; } .sorpresa-carta, .sorpresa-puntos { animation: none; } }
 
 .aviso-duplicados { background: #FFF4E5; border: 2px solid #F2A33A; color: #5a3500; border-radius: var(--radio-boton); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+
+.zona-reinicio { border-color: #E5A0A0; }
+.reinicios { display: grid; gap: 8px; }
+@media (min-width: 700px) { .reinicios { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.reinicios .btn { justify-content: flex-start; text-align: left; min-height: 64px; padding: 10px 14px; }
+.reinicios .btn span { display: flex; flex-direction: column; gap: 2px; }
+.reinicios .btn small { font-weight: 500; font-size: 13px; color: var(--suave); }
