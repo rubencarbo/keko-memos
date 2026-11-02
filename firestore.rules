@@ -26,9 +26,11 @@ service cloud.firestore {
 
       allow read: if esMiembro();
       allow create: if conSesion() && request.resource.data.admin == yoUid();
+      // El titular de la cuenta del hogar solo puede pasar a otro adulto del hogar (al fusionar duplicados)
       allow update: if esAdulto()
-        && request.resource.data.admin == resource.data.admin
-        && request.resource.data.codigo == resource.data.codigo;
+        && request.resource.data.codigo == resource.data.codigo
+        && (request.resource.data.admin == resource.data.admin
+            || getAfter(/databases/$(database)/documents/hogares/$(hogar)/miembros/$(request.resource.data.admin)).data.rol == 'adulto');
 
       match /miembros/{uid} {
         allow read: if esMiembro();
@@ -40,7 +42,7 @@ service cloud.firestore {
           || (yoUid() == uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'codigo']));
         // Borrar (o fusionar duplicados): administrador, cualquier adulto o uno mismo; nunca al administrador
         allow delete: if (esAdulto() || yoUid() == uid)
-          && uid != get(/databases/$(database)/documents/hogares/$(hogar)).data.admin;
+          && uid != getAfter(/databases/$(database)/documents/hogares/$(hogar)).data.admin;
       }
 
       match /recetas/{id} {

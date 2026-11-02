@@ -96,6 +96,7 @@ const yoActivo = () => (esTablet() && miembro(S.activoId)) || S.yo;
 const esAdulto = () => yoActivo()?.rol === "adulto";
 const esMenor = () => yoActivo()?.rol === "menor";
 const esAdmin = () => S.hogar?.admin === S.user?.uid;
+const puedeOrdenarFamilia = () => esAdulto() || esAdmin();
 
 // ---------- UTILIDADES ----------
 const $ = (s, r = document) => r.querySelector(s);
@@ -836,6 +837,7 @@ function accionesPlan() {
       <button class="btn btn-primario crece" data-accion="sugerir-semana">${icono("chispa")}Rellenar huecos con KeKoMeMos</button>
       <button class="btn crece" data-accion="nueva-receta-plan">+ Nueva receta</button>
       <button class="btn crece" data-accion="compra-semana">${icono("compra")}Lista de la compra</button>
+      <button class="btn btn-peligro" data-accion="vaciar-plan">Vaciar ${S.modoCal === "mes" ? "mes" : "semana"}</button>
     </div>` : "";
 }
 function vistaSemana() {
@@ -1064,7 +1066,7 @@ function vistaYo() {
       <section class="tarjeta seccion pila">
         <div class="fila">
           ${avatar(yo, 72)}
-          <div class="crece"><strong style="font-size:20px">${esc(yo.nombre)}</strong><div class="suave">${yo.rol === "adulto" ? "Adulto" : "Menor"}${esAdmin() ? " · Administrador" : ""} · ${puntosMes(yo)} pts este mes</div></div>
+          <div class="crece"><strong style="font-size:20px">${esc(yo.nombre)}</strong><div class="suave">${yo.rol === "adulto" ? "Adulto" : "Menor"} · ${puntosMes(yo)} pts este mes</div></div>
           <label class="btn">Cambiar foto<input type="file" accept="image/*" data-input="foto-perfil" hidden></label>
         </div>
         <form class="fila" data-form="nombre">
@@ -1092,7 +1094,7 @@ function vistaYo() {
     </div>
     <div class="pila">
       ${panelRanking(true)}
-      ${esAdulto() ? panelHogar() : ""}
+      ${puedeOrdenarFamilia() ? panelHogar() : ""}
       ${esAdulto() ? `<section class="tarjeta seccion pila"><h2 class="h2">KeKoMeMos (IA ${IA.CON_GEMINI ? "Gemini" : "gratuita · Cloudflare"})</h2>
         <p class="suave" style="margin:0">La IA escribe recetas, crea las fotos de los platos, pone los acertijos, rellena la semana, calcula la compra y te ayuda en el modo cocina.</p>
         <div class="fila"><button class="btn" data-accion="probar-ia">Probar la IA</button>
@@ -1102,6 +1104,7 @@ function vistaYo() {
 }
 
 async function fusionarMiembros(dup, keep) {
+  if (dup.id === S.user.uid) throw new Error(`«${dup.nombre}» es el perfil con el que estás usando la app en este dispositivo: quédate con ese y junta el otro dentro.`);
   const puntos = { ...(keep.puntos || {}) };
   Object.entries(dup.puntos || {}).forEach(([k, v]) => { puntos[k] = (puntos[k] || 0) + v; });
   const lote = writeBatch(db);
@@ -1112,6 +1115,7 @@ async function fusionarMiembros(dup, keep) {
     foto: keep.foto || dup.foto || null,
     nacimiento: keep.nacimiento || dup.nacimiento || ""
   });
+  if (S.hogar.admin === dup.id) lote.update(doc(db, "hogares", S.hogarId), { admin: keep.id });
   lote.delete(ref$("miembros", dup.id));
   if (S.hogar.cocineraHabitual === dup.id) lote.update(doc(db, "hogares", S.hogarId), { cocineraHabitual: keep.id });
   await lote.commit();
@@ -1152,7 +1156,7 @@ function panelHogar() {
         <option value="adulto" ${m.rol === "adulto" ? "selected" : ""}>Adulto</option>
         <option value="menor" ${m.rol === "menor" ? "selected" : ""}>Menor</option>
       </select>
-      ${esAdulto() && m.id !== h.admin ? `<button class="btn" style="min-height:40px" data-accion="fusionar" data-id="${m.id}">Fusionar…</button>` : ""}
+      ${puedeOrdenarFamilia() ? `<button class="btn" style="min-height:40px" data-accion="fusionar" data-id="${m.id}">Fusionar…</button>` : ""}
       ${esAdmin() && m.id !== h.admin ? `<button class="btn-x" data-accion="quitar-miembro" data-id="${m.id}" aria-label="Quitar a ${esc(m.nombre)}">×</button>` : ""}
     </li>`).join("")}</ul>
   </section>`;
@@ -1393,7 +1397,8 @@ const ACCIONES = {
     const iguales = S.miembros.filter((m) => normal(m.nombre) === normal(d.nombre));
     const info = (m) => {
       const pts = Object.values(m.puntos || {}).reduce((a, b) => a + b, 0);
-      return `${m.rol === "adulto" ? "Adulto" : "Menor"}${m.id === S.hogar.admin ? " · administrador" : ""}${m.id === S.user.uid ? " · este dispositivo" : ""} · ${pts} pts${m.nacimiento ? " · " + m.nacimiento.split("-").reverse().join("/") : " · sin fecha"}`;
+      const creado = m.creado?.toDate ? " · creado el " + m.creado.toDate().toLocaleDateString("es-ES") : "";
+      return `${m.rol === "adulto" ? "Adulto" : "Menor"}${m.id === S.user.uid ? " · el de este dispositivo" : ""} · ${pts} pts${m.nacimiento ? " · nació el " + m.nacimiento.split("-").reverse().join("/") : ""}${creado}`;
     };
     abrirModal(`${cabeceraModal("¿Con qué «" + d.nombre + "» nos quedamos?")}
       <p class="suave" style="margin:0">Los demás se juntan en el elegido (se suman sus puntos y retos) y se borran.</p>
@@ -1403,8 +1408,7 @@ const ACCIONES = {
   "quedarse-con": async (d) => {
     const keep = miembro(d.id);
     const otros = S.miembros.filter((m) => m.id !== keep.id && normal(m.nombre) === normal(d.nombre));
-    const admin = otros.find((m) => m.id === S.hogar.admin);
-    if (admin) return notificar(`Quédate con el perfil de administrador (${admin.nombre}): el administrador no se puede borrar.`);
+    if (otros.some((m) => m.id === S.hogar.admin) && keep.rol !== "adulto") return notificar("Para juntar a un adulto, quédate con un perfil de adulto.");
     if (!confirmar(`¿Juntar ${otros.length} perfil(es) repetido(s) en este «${keep.nombre}»?`)) return;
     for (const dup of otros) await fusionarMiembros(dup, keep);
     cerrarModal();
@@ -1419,7 +1423,7 @@ const ACCIONES = {
   },
   "fusionar-con": async (d) => {
     const dup = miembro(d.dup), keep = miembro(d.id);
-    if (dup.id === S.hogar.admin) return notificar("El administrador no se puede borrar: fusiona el otro perfil dentro de este.");
+    if (dup.id === S.hogar.admin && keep.rol !== "adulto") return notificar("Para juntar a un adulto, elige un perfil de adulto.");
     if (!confirmar(`¿Juntar «${dup.nombre}» dentro de «${keep.nombre}»? No se puede deshacer.`)) return;
     await fusionarMiembros(dup, keep);
     cerrarModal();
@@ -1563,6 +1567,26 @@ const ACCIONES = {
   },
   "iniciar-intercambio": (d) => { cerrarModal(); S.intercambio = d.hueco; render(); },
   "quitar-menu": async (d) => { cerrarModal(); await deleteDoc(ref$("menus", d.hueco)); },
+  "vaciar-plan": async () => {
+    let desde, hasta, nombre;
+    if (S.modoCal === "mes") {
+      const base = new Date();
+      const primero = new Date(base.getFullYear(), base.getMonth() + S.mesOffset, 1);
+      desde = iso(primero); hasta = iso(new Date(primero.getFullYear(), primero.getMonth() + 1, 0));
+      nombre = primero.toLocaleDateString("es-ES", { month: "long" });
+    } else {
+      const lunes = masDias(lunesDe(new Date()), S.semana * 7);
+      desde = iso(lunes); hasta = iso(masDias(lunes, 6));
+      nombre = "la semana del " + lunes.toLocaleDateString("es-ES", { day: "numeric", month: "long" });
+    }
+    const ids = Object.keys(S.menus).filter((id) => { const f = id.split("_")[0]; return f >= desde && f <= hasta; });
+    if (!ids.length) return notificar("No hay nada planificado en " + nombre + ".");
+    if (!confirmar(`¿Vaciar ${nombre}? Se quitan ${ids.length} comidas y cenas planificadas (las recetas no se borran).`)) return;
+    const lote = writeBatch(db);
+    ids.forEach((id) => lote.delete(ref$("menus", id)));
+    await lote.commit();
+    notificar(`${nombre.charAt(0).toUpperCase() + nombre.slice(1)} vaciada`);
+  },
   "sugerir-semana": async () => {
     if (!S.recetas.length) return notificar("Primero añade algunas recetas.");
     const lunes = masDias(lunesDe(new Date()), S.semana * 7);

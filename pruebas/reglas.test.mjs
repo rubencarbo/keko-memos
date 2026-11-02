@@ -96,8 +96,9 @@ test("un adulto planifica, edita recetas y cambia quién cocina", async () => {
   await assertSucceeds(updateDoc(doc(db, "hogares", H), { cocinaHoy: { fecha: "2026-10-20", uid: "leo" } }));
 });
 
-test("nadie puede cambiar el administrador ni el código del hogar", async () => {
+test("el titular solo pasa a otro adulto y el código no cambia", async () => {
   await assertFails(updateDoc(doc(como("ana"), "hogares", H), { admin: "leo" }));
+  await assertFails(updateDoc(doc(como("ana"), "hogares", H), { admin: "nadie" }));
   await assertFails(updateDoc(doc(como("ana"), "hogares", H), { codigo: "NUEVO1" }));
 });
 
@@ -119,4 +120,15 @@ test("un adulto puede borrar un perfil duplicado, pero nadie al administrador", 
   await assertSucceeds(deleteDoc(doc(como("javi"), "hogares", H, "miembros", "leo2")));
   await assertFails(deleteDoc(doc(como("javi"), "hogares", H, "miembros", "ana")));
   await assertFails(deleteDoc(doc(como("leo"), "hogares", H, "miembros", "javi")));
+});
+
+test("fusionar al titular: pasa a otro adulto y se borra el duplicado en el mismo paso", async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), "hogares", H, "miembros", "ana2"), { nombre: "Ana", rol: "adulto", codigo: "ABC234" });
+  });
+  const db = como("ana");
+  const b = writeBatch(db);
+  b.update(doc(db, "hogares", H), { admin: "ana2" });
+  b.delete(doc(db, "hogares", H, "miembros", "ana"));
+  await assertSucceeds(b.commit());
 });
