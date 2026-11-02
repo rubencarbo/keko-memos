@@ -39,7 +39,8 @@ jobs:
       - name: Reglas de seguridad y recorrido de la app
         run: |
           echo "## Reglas de seguridad" >> informe/resultado.md
-          npx firebase emulators:exec --only auth,firestore,storage,hosting --project keko-memos \
+          (cd funciones && npm install --no-audit --no-fund)
+          npx firebase emulators:exec --only auth,firestore,storage,hosting,functions --project keko-memos \
             "node --test --test-reporter=spec pruebas/reglas.test.mjs 2>&1 | tee informe/reglas.log && node pruebas/sembrar.mjs && node pruebas/recorrido.mjs" \
             2>&1 | tee informe/emuladores.log
           exit ${PIPESTATUS[0]}

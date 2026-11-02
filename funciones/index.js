@@ -54,6 +54,7 @@ exports.enviarAviso = onDocumentCreated("hogares/{hogar}/avisos/{aviso}", async 
 // =========================================================
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getStorage, getDownloadURL } = require("firebase-admin/storage");
+const { getAuth } = require("firebase-admin/auth");
 const dns = require("node:dns/promises");
 const net = require("node:net");
 const crypto = require("node:crypto");
@@ -268,4 +269,81 @@ exports.ia = onCall({ enforceAppCheck: true, timeoutSeconds: 120, memory: "256Mi
   }
   const texto = typeof res.response === "string" ? res.response : JSON.stringify(res.response ?? res);
   return { texto };
+});
+
+// =========================================================
+// Unirse al hogar sin duplicar personas
+//  · «listar»: con el código, devuelve los perfiles de menores para que cada uno elija el suyo
+//  · «soy»: entrar en un perfil que ya existe (se comprueba la fecha de nacimiento) → misma cuenta de siempre
+//  · «nuevo»: crear un perfil, comprobando antes que no exista ya alguien con ese nombre y fecha
+// Los adultos entran siempre con Google (misma cuenta en todos sus dispositivos).
+// =========================================================
+const EMULADOR = !!process.env.FUNCTIONS_EMULATOR;
+const EDAD_ADULTO = 21;
+const normal = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+function edadDe(fn) {
+  const [y, m, d] = String(fn || "").split("-").map(Number);
+  if (!y) return null;
+  const h = new Date();
+  let e = h.getFullYear() - y;
+  if (h.getMonth() + 1 < m || (h.getMonth() + 1 === m && h.getDate() < d)) e--;
+  return e;
+}
+
+exports.unirse = onCall({ enforceAppCheck: !EMULADOR, timeoutSeconds: 30 }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Inicia sesión");
+  const uid = req.auth.uid;
+  const anonimo = req.auth.token?.firebase?.sign_in_provider === "anonymous";
+  const { accion, miembroId } = req.data || {};
+  const codigo = String(req.data?.codigo || "").trim().toUpperCase();
+  const c = await db.doc(`codigos/${codigo}`).get();
+  if (!codigo || !c.exists) throw new HttpsError("not-found", "Ese código familiar no existe. Pídeselo al administrador.");
+  const hogarId = c.data().hogarId;
+  const hogar = (await db.doc(`hogares/${hogarId}`).get()).data() || {};
+  const miembros = (await db.collection(`hogares/${hogarId}/miembros`).get()).docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  if (accion === "listar") {
+    return {
+      hogar: hogar.nombre || "",
+      perfiles: miembros.filter((m) => m.rol === "menor").map((m) => ({ id: m.id, nombre: m.nombre, foto: m.foto || null }))
+    };
+  }
+
+  const entrarComo = async (m) => {
+    await db.doc(`usuarios/${m.id}`).set({ hogarId }, { merge: true });
+    if (m.id === uid) return { ok: true };
+    return { token: await getAuth().createCustomToken(m.id) };
+  };
+
+  if (accion === "soy") {
+    const m = miembros.find((x) => x.id === miembroId);
+    if (!m) throw new HttpsError("not-found", "Ese perfil ya no existe");
+    if (m.rol !== "menor" && m.id !== uid) throw new HttpsError("permission-denied", "Los adultos entran con su cuenta de Google");
+    if (m.nacimiento && m.nacimiento !== req.data?.nacimiento) throw new HttpsError("permission-denied", "La fecha de nacimiento no coincide con ese perfil");
+    return entrarComo(m);
+  }
+
+  if (accion === "nuevo") {
+    const nombre = String(req.data?.nombre || "").trim().slice(0, 24);
+    const nacimiento = String(req.data?.nacimiento || "");
+    if (!nombre || !/^\d{4}-\d{2}-\d{2}$/.test(nacimiento)) throw new HttpsError("invalid-argument", "Faltan el nombre o la fecha de nacimiento");
+    const e = edadDe(nacimiento);
+    const rol = e !== null && e < EDAD_ADULTO ? "menor" : "adulto";
+    // ¿Ya existe esta persona (mismo nombre y fecha, o misma cuenta)?
+    const igual = miembros.find((m) => m.id === uid || (normal(m.nombre) === normal(nombre) && m.nacimiento === nacimiento));
+    if (igual) {
+      if (igual.rol === "menor" || igual.id === uid) return { ...(await entrarComo(igual)), existente: true };
+      throw new HttpsError("already-exists", `${igual.nombre} ya está en este hogar: entra con tu cuenta de Google`);
+    }
+    if (rol === "adulto" && anonimo && !EMULADOR) throw new HttpsError("failed-precondition", "Los adultos tienen que entrar con su cuenta de Google");
+    const b = db.batch();
+    b.set(db.doc(`hogares/${hogarId}/miembros/${uid}`), {
+      nombre, nacimiento, rol, codigo, tema: "pizarra", puntos: {}, tokens: [],
+      foto: req.auth.token?.picture || null, creado: FieldValue.serverTimestamp()
+    });
+    b.set(db.doc(`usuarios/${uid}`), { hogarId });
+    await b.commit();
+    return { ok: true };
+  }
+  throw new HttpsError("invalid-argument", "Acción desconocida");
 });

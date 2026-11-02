@@ -41,6 +41,26 @@ async function resolverReto(p, nombre, foto) {
   await p.getByText(`¡Bien, ${nombre}!`).waitFor({ timeout: 5000 });
 }
 
+// Unirse con el código: elegir «nuevo» o un perfil existente
+async function unirse(p, { nombre, nacimiento, existente = false }, foto) {
+  await p.getByRole("button", { name: "Entrar con el código familiar" }).click();
+  await p.locator('form[data-form="union-codigo"] input[name="codigo"]').fill("PRUEBA");
+  await p.getByRole("button", { name: "Continuar" }).click();
+  await p.getByText("¿Quién eres?").waitFor({ timeout: 20000 });
+  if (foto) await captura(p, foto);
+  if (existente) {
+    await p.locator(".selector-cocinero").getByRole("button", { name: nombre }).click();
+    await p.locator('form[data-form="union-soy"] input[name="nacimiento"]').fill(nacimiento);
+    await p.getByRole("button", { name: "Entrar" }).click();
+  } else {
+    await p.getByRole("button", { name: "Soy nuevo/a en la familia" }).click();
+    const f = p.locator('form[data-form="union-nuevo"]');
+    await f.locator('input[name="nombre"]').fill(nombre);
+    await f.locator('input[name="nacimiento"]').fill(nacimiento);
+    await f.getByRole("button", { name: "Unirme" }).click();
+  }
+}
+
 const navegador = await chromium.launch();
 
 // ---------- ADULTO EN LA TABLET ----------
@@ -56,14 +76,7 @@ await paso("La pantalla de entrada carga", async () => {
 
 if (!EN_VIVO) {
   await paso("Entrar con el código familiar (anónimo) y unirse al hogar", async () => {
-    await t.getByRole("button", { name: "Entrar con el código familiar" }).click();
-    await t.locator('input[name="codigo"]').first().waitFor();
-    await captura(t, "unirse");
-    const f = t.locator('form[data-form="unirse"]');
-    await f.locator('input[name="codigo"]').fill("PRUEBA");
-    await f.locator('input[name="nombre"]').fill("Rubén");
-    await f.locator('input[name="nacimiento"]').fill("1980-06-01");
-    await f.getByRole("button", { name: "Unirme" }).click();
+    await unirse(t, { nombre: "Rubén", nacimiento: "1980-06-01" }, "unirse-quien-eres");
     await t.locator("#nav").getByRole("button", { name: "Menús" }).waitFor({ timeout: 20000 });
   });
 
@@ -247,12 +260,7 @@ if (!EN_VIVO) {
 
   await paso("Móvil: un menor se une con el código", async () => {
     await m.goto(URL, { waitUntil: "load" });
-    await m.getByRole("button", { name: "Entrar con el código familiar" }).click();
-    const f = m.locator('form[data-form="unirse"]');
-    await f.locator('input[name="codigo"]').fill("PRUEBA");
-    await f.locator('input[name="nombre"]').fill("Hugo");
-    await f.locator('input[name="nacimiento"]').fill("2009-02-01");
-    await f.getByRole("button", { name: "Unirme" }).click();
+    await unirse(m, { nombre: "Hugo", nacimiento: "2009-02-01" });
     await m.locator("#nav").getByRole("button", { name: "Hoy" }).waitFor({ timeout: 20000 });
   });
 
@@ -309,18 +317,36 @@ if (!EN_VIVO) {
     await captura(t, "tablet-aviso-recibido");
   });
 
+  await paso("Sin duplicados: Hugo entra desde otro móvil y elige su perfil", async () => {
+    const otro = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-ES", timezoneId: "Europe/Madrid" });
+    const h = await otro.newPage();
+    vigilar(h, "móvil 2 de Hugo");
+    await h.goto(URL, { waitUntil: "load" });
+    await unirse(h, { nombre: "Hugo", nacimiento: "2009-02-01", existente: true }, "otro-movil-elige-perfil");
+    await h.getByText("¡Hola, Hugo!").waitFor({ timeout: 20000 });
+    // ya había acertado el reto en el otro móvil: no se le vuelve a pedir
+    if (await h.locator(".hero-keko").count()) throw new Error("el reto ya resuelto vuelve a aparecer");
+    await captura(h, "otro-movil-mismo-perfil");
+    // intentar crear otra vez a Hugo como «nuevo» tampoco duplica
+    const otro2 = await navegador.newContext({ viewport: { width: 390, height: 844 }, locale: "es-ES" });
+    const h2 = await otro2.newPage();
+    await h2.goto(URL, { waitUntil: "load" });
+    await unirse(h2, { nombre: "hugo", nacimiento: "2009-02-01" });
+    await h2.getByText("¡Hola, Hugo!").waitFor({ timeout: 20000 });
+    await t.locator("#nav").getByRole("button", { name: "Hoy" }).click();
+    await t.waitForTimeout(1500);
+    const n = await t.locator(".ranking-fila", { hasText: "Hugo" }).count();
+    if (n !== 1) throw new Error(`Hugo aparece ${n} veces en la liga`);
+    await otro.close(); await otro2.close();
+  });
+
   // ---------- ADULTO EN EL MÓVIL ----------
   const movil2 = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-ES", timezoneId: "Europe/Madrid" });
   const a = await movil2.newPage();
   vigilar(a, "móvil adulto");
   await paso("Móvil adulto: vistas principales", async () => {
     await a.goto(URL, { waitUntil: "load" });
-    await a.getByRole("button", { name: "Entrar con el código familiar" }).click();
-    const f = a.locator('form[data-form="unirse"]');
-    await f.locator('input[name="codigo"]').fill("PRUEBA");
-    await f.locator('input[name="nombre"]').fill("Javi");
-    await f.locator('input[name="nacimiento"]').fill("1979-04-04");
-    await f.getByRole("button", { name: "Unirme" }).click();
+    await unirse(a, { nombre: "Javi", nacimiento: "1979-04-04" });
     await a.getByText("Fideos a la cazuela").first().waitFor({ timeout: 20000 });
     await captura(a, "movil-adulto-hoy");
     await a.locator("#nav").getByRole("button", { name: "Menús" }).click();

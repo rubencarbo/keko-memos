@@ -6,7 +6,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebas
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app-check.js";
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
-  signInAnonymously, signOut, connectAuthEmulator
+  signInAnonymously, signOut, connectAuthEmulator, signInWithCustomToken
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
@@ -15,7 +15,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-storage.js";
 import { getMessaging, getToken, isSupported } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-messaging.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-functions.js";
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-functions.js";
 import * as IA from "./asistente.js";
 
 // ---------- CONFIGURACIÓN ----------
@@ -75,6 +75,8 @@ if (EMULADORES) {
 }
 IA.iniciarIA(app);
 const nube = getFunctions(app, "europe-west1");
+if (EMULADORES) connectFunctionsEmulator(nube, "127.0.0.1", 5001);
+const unirseFn = httpsCallable(nube, "unirse");
 const leerWebs = httpsCallable(nube, "leerWebs", { timeout: 70000 });
 const guardarFotoWeb = httpsCallable(nube, "guardarFotoWeb", { timeout: 70000 });
 
@@ -228,16 +230,46 @@ function mostrarEntrada(modo) {
     return;
   }
   const anonimo = S.user?.isAnonymous;
-  p.innerHTML = `
-    <div class="entrada-caja">
-      <h1 class="titulo">${anonimo ? "Únete a tu familia" : "Tu hogar"}</h1>
-      <form class="tarjeta seccion pila" data-form="unirse">
+  const u = S.union || {};
+  let cuerpo;
+  if (u.paso === "elegir") {
+    cuerpo = `
+      <div class="tarjeta seccion pila">
+        <div class="etiqueta">${esc(u.hogar)}</div>
+        <h2 class="titulo">¿Quién eres?</h2>
+        <p class="suave" style="margin:0">Si ya habías entrado antes (en este u otro móvil), elige tu perfil: así no se duplica.</p>
+        ${u.perfiles.length ? `<div class="selector-cocinero">${u.perfiles.map((m) => `<button data-accion="union-soy" data-id="${m.id}">${avatar(m, 80)}<span>${esc(m.nombre)}</span></button>`).join("")}</div>` : ""}
+        <button class="btn btn-grande" data-accion="union-nuevo">Soy nuevo/a en la familia</button>
+        <p class="suave" style="margin:0;font-size:14px">¿Eres adulto? Los adultos entran siempre con su cuenta de Google.</p>
+        <button class="btn-enlace" data-accion="union-atras">‹ Cambiar código</button>
+      </div>`;
+  } else if (u.paso === "soy") {
+    const m = u.perfiles.find((x) => x.id === u.miembroId);
+    cuerpo = `
+      <form class="tarjeta seccion pila" data-form="union-soy">
+        <div class="fila">${avatar(m, 64)}<h2 class="titulo">Hola, ${esc(m?.nombre)}</h2></div>
+        <label class="campo">Para comprobar que eres tú, ¿cuál es tu fecha de nacimiento?
+          <input name="nacimiento" type="date" required></label>
+        <button class="btn btn-primario btn-grande">Entrar</button>
+        <button type="button" class="btn-enlace" data-accion="union-elegir">‹ No soy yo</button>
+      </form>`;
+  } else if (u.paso === "nuevo") {
+    cuerpo = `
+      <form class="tarjeta seccion pila" data-form="union-nuevo">
+        <div class="etiqueta">${esc(u.hogar)}</div>
+        <h2 class="titulo">Bienvenido/a</h2>
+        ${camposPerfil()}
+        <button class="btn btn-primario btn-grande">Unirme</button>
+        <button type="button" class="btn-enlace" data-accion="union-elegir">‹ Volver</button>
+      </form>`;
+  } else {
+    cuerpo = `
+      <form class="tarjeta seccion pila" data-form="union-codigo">
         <h2 class="h2">Unirme con código</h2>
         <label class="campo">Código familiar
           <input name="codigo" required maxlength="6" value="${esc(codigo)}" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;letter-spacing:.2em;font-size:22px">
         </label>
-        ${camposPerfil()}
-        <button class="btn btn-primario btn-grande">Unirme</button>
+        <button class="btn btn-primario btn-grande">Continuar</button>
       </form>
       ${anonimo ? "" : `
       <form class="tarjeta seccion pila" data-form="crear-hogar">
@@ -245,7 +277,12 @@ function mostrarEntrada(modo) {
         <label class="campo">Nombre del hogar <input name="hogar" required placeholder="Casa de los García"></label>
         ${camposPerfil()}
         <button class="btn btn-grande">Crear hogar</button>
-      </form>`}
+      </form>`}`;
+  }
+  p.innerHTML = `
+    <div class="entrada-caja">
+      <h1 class="titulo">${anonimo ? "Únete a tu familia" : "Tu hogar"}</h1>
+      ${cuerpo}
       <button class="btn btn-linea" data-accion="salir">Cerrar sesión</button>
     </div>`;
 }
@@ -269,17 +306,29 @@ function datosMiembro(f, codigo) {
 }
 
 const FORMULARIOS = {
-  async unirse(f) {
-    const codigo = f.get("codigo").trim().toUpperCase();
-    const c = await getDoc(doc(db, "codigos", codigo));
-    if (!c.exists()) return notificar("Ese código no existe. Revísalo con el administrador.");
-    const hid = c.data().hogarId;
-    const b = writeBatch(db);
-    b.set(doc(db, "hogares", hid, "miembros", S.user.uid), datosMiembro(f, codigo));
-    b.set(doc(db, "usuarios", S.user.uid), { hogarId: hid });
-    await b.commit();
-    sessionStorage.removeItem("unir");
-    conectarHogar(hid);
+  async "union-codigo"(f, form) {
+    const codigo = String(f.get("codigo") || "").trim().toUpperCase();
+    const b = form.querySelector("button"); b.disabled = true; b.textContent = "Comprobando…";
+    try {
+      const r = await unirseFn({ accion: "listar", codigo });
+      S.union = { codigo, hogar: r.data.hogar, perfiles: r.data.perfiles || [], paso: "elegir" };
+      mostrarEntrada("unirse");
+    } catch (e) { notificar(e.message || "Código no válido"); b.disabled = false; b.textContent = "Continuar"; }
+  },
+  async "union-soy"(f, form) {
+    const b = form.querySelector("button.btn-primario"); b.disabled = true; b.textContent = "Entrando…";
+    try {
+      const r = await unirseFn({ accion: "soy", codigo: S.union.codigo, miembroId: S.union.miembroId, nacimiento: f.get("nacimiento") });
+      await terminarUnion(r.data);
+    } catch (e) { notificar(e.message || "No se ha podido entrar"); b.disabled = false; b.textContent = "Entrar"; }
+  },
+  async "union-nuevo"(f, form) {
+    const b = form.querySelector("button.btn-primario"); b.disabled = true; b.textContent = "Uniéndote…";
+    try {
+      const r = await unirseFn({ accion: "nuevo", codigo: S.union.codigo, nombre: f.get("nombre"), nacimiento: f.get("nacimiento") });
+      if (r.data.existente) notificar("¡Ya estabas en la familia! Entrando en tu perfil.");
+      await terminarUnion(r.data);
+    } catch (e) { notificar(e.message || "No se ha podido crear el perfil"); b.disabled = false; b.textContent = "Unirme"; }
   },
   async "crear-hogar"(f) {
     const hogarRef = doc(collection(db, "hogares"));
@@ -295,6 +344,15 @@ const FORMULARIOS = {
     conectarHogar(hogarRef.id);
   }
 };
+
+// Tras unirse: si es un perfil que ya existía, el servidor devuelve un pase para entrar en esa misma cuenta
+async function terminarUnion(datos) {
+  sessionStorage.removeItem("unir");
+  S.union = null;
+  if (datos?.token) { await signInWithCustomToken(auth, datos.token); return; }
+  const u = await getDoc(doc(db, "usuarios", auth.currentUser.uid));
+  conectarHogar(u.data().hogarId);
+}
 
 // =========================================================
 // CONEXIÓN CON EL HOGAR
@@ -1018,6 +1076,11 @@ function vistaYo() {
   </div>`;
 }
 
+function duplicados() {
+  const vistos = {}, rep = new Set();
+  S.miembros.forEach((m) => { const k = normal(m.nombre); if (vistos[k]) rep.add(m.nombre); vistos[k] = true; });
+  return [...rep];
+}
 function panelHogar() {
   const h = S.hogar;
   const enlace = `${location.origin}/?unir=${h.codigo}`;
@@ -1038,6 +1101,7 @@ function panelHogar() {
       <small>Aparece por defecto cada día. Si otra persona cocina, se cambia solo para ese día desde «Hoy».</small>
     </label>
     <h3 class="h2">Miembros</h3>
+    ${duplicados().length ? `<div class="banner"><span>Parece que hay personas repetidas: ${esc(duplicados().join(", "))}. Usa «Fusionar…» para juntarlas.</span></div>` : ""}
     <ul class="lista">${S.miembros.map((m) => `<li>
       ${avatar(m, 40)}
       <span class="crece">${esc(m.nombre)}${m.nacimiento ? ` <span class="suave">· ${edad(m.nacimiento)} años</span>` : ""}</span>
@@ -1045,7 +1109,7 @@ function panelHogar() {
         <option value="adulto" ${m.rol === "adulto" ? "selected" : ""}>Adulto</option>
         <option value="menor" ${m.rol === "menor" ? "selected" : ""}>Menor</option>
       </select>
-      ${esAdmin() && m.id !== h.admin ? `<button class="btn-x" data-accion="quitar-miembro" data-id="${m.id}" aria-label="Quitar a ${esc(m.nombre)}">×</button>` : ""}
+      ${esAdmin() && m.id !== h.admin ? `<button class="btn" style="min-height:40px" data-accion="fusionar" data-id="${m.id}">Fusionar…</button><button class="btn-x" data-accion="quitar-miembro" data-id="${m.id}" aria-label="Quitar a ${esc(m.nombre)}">×</button>` : ""}
     </li>`).join("")}</ul>
   </section>`;
 }
@@ -1274,6 +1338,36 @@ const ACCIONES = {
   "login-google": async () => {
     const p = new GoogleAuthProvider();
     try { await signInWithPopup(auth, p); } catch (e) { if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") await signInWithRedirect(auth, p); else notificar("No se pudo entrar: " + e.code); }
+  },
+  "union-soy": (d) => { S.union.miembroId = d.id; S.union.paso = "soy"; mostrarEntrada("unirse"); },
+  "union-nuevo": () => { S.union.paso = "nuevo"; mostrarEntrada("unirse"); },
+  "union-elegir": () => { S.union.paso = "elegir"; mostrarEntrada("unirse"); },
+  "union-atras": () => { S.union = null; mostrarEntrada("unirse"); },
+  fusionar: (d) => {
+    const dup = miembro(d.id);
+    const otros = S.miembros.filter((m) => m.id !== dup.id);
+    abrirModal(`${cabeceraModal("¿" + dup.nombre + " es la misma persona que…?")}
+      <p class="suave" style="margin:0">Se juntan los puntos y los retos en el perfil que elijas, y se borra este duplicado. En el móvil del duplicado tendrá que volver a entrar eligiendo su perfil.</p>
+      <div class="selector-cocinero">${otros.map((m) => `<button data-accion="fusionar-con" data-dup="${dup.id}" data-id="${m.id}">${avatar(m, 72)}<span>${esc(m.nombre)}</span></button>`).join("")}</div>`);
+  },
+  "fusionar-con": async (d) => {
+    const dup = miembro(d.dup), keep = miembro(d.id);
+    if (!confirmar(`¿Juntar «${dup.nombre}» dentro de «${keep.nombre}»? No se puede deshacer.`)) return;
+    const puntos = { ...(keep.puntos || {}) };
+    Object.entries(dup.puntos || {}).forEach(([k, v]) => { puntos[k] = (puntos[k] || 0) + v; });
+    const lote = writeBatch(db);
+    lote.update(ref$("miembros", keep.id), {
+      puntos,
+      resueltos: { ...(dup.resueltos || {}), ...(keep.resueltos || {}) },
+      tokens: [...new Set([...(keep.tokens || []), ...(dup.tokens || [])])],
+      foto: keep.foto || dup.foto || null,
+      nacimiento: keep.nacimiento || dup.nacimiento || ""
+    });
+    lote.delete(ref$("miembros", dup.id));
+    if (S.hogar.cocineraHabitual === dup.id) lote.update(doc(db, "hogares", S.hogarId), { cocineraHabitual: keep.id });
+    await lote.commit();
+    cerrarModal();
+    notificar(`${dup.nombre} unido a ${keep.nombre}`);
   },
   "login-anonimo": async () => {
     try { await signInAnonymously(auth); } catch (e) {
