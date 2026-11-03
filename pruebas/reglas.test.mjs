@@ -2,7 +2,7 @@
 import { test, before, after, beforeEach } from "node:test";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertSucceeds, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, collection } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, collection, addDoc } from "firebase/firestore";
 
 let env;
 const H = "hogar1";
@@ -77,6 +77,28 @@ test("crear una familia nueva necesita una invitación de Rubén (y solo sirve u
   b2.set(doc(otro, "hogares", "h3"), { nombre: "Copia", codigo: "ZXC456", admin: "leo3", cocineraHabitual: "leo3", invitacion: "inv1" });
   b2.update(doc(otro, "invitaciones", "inv1"), { hogarId: "h3", usadaPor: "leo3" });
   await assertFails(b2.commit());
+});
+
+test("misiones: el menor no se da puntos ni estrellas, solo pide; el adulto verifica y entrega", async () => {
+  await assertFails(addDoc(collection(como("leo"), "hogares", H, "tareas"), { tarea: "hacer_cama", uid: "leo", por: "leo", estado: "ok", puntos: 5 }));
+  await assertSucceeds(addDoc(collection(como("leo"), "hogares", H, "tareas"), { tarea: "hacer_cama", uid: "leo", por: "leo", estado: "pendiente", puntos: 5 }));
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), "hogares", H, "tareas", "enc1"), { tarea: "tender", uid: "leo", por: "ana", estado: "asignada", encargo: true, puntos: 15 });
+  });
+  await assertFails(updateDoc(doc(como("leo"), "hogares", H, "tareas", "enc1"), { estado: "ok" }));
+  await assertFails(updateDoc(doc(como("leo"), "hogares", H, "tareas", "enc1"), { estado: "pendiente", puntos: 500 }));
+  await assertSucceeds(updateDoc(doc(como("leo"), "hogares", H, "tareas", "enc1"), { estado: "pendiente", hechoMs: 1 }));
+  await assertFails(updateDoc(doc(como("leo"), "hogares", H, "miembros", "leo"), { gastado: -100 }));
+  await assertFails(updateDoc(doc(como("leo"), "hogares", H, "miembros", "leo"), { "logros.cien": "2026-11-03" }));
+  await assertSucceeds(addDoc(collection(como("leo"), "hogares", H, "canjes"), { uid: "leo", por: "leo", estado: "pendiente", coste: 40, nombre: "Pantalla" }));
+  await assertFails(addDoc(collection(como("leo"), "hogares", H, "canjes"), { uid: "leo", por: "leo", estado: "entregado", coste: 40 }));
+  await assertFails(addDoc(collection(como("leo"), "hogares", H, "canjes"), { uid: "ana", por: "leo", estado: "pendiente", coste: 40 }));
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), "hogares", H, "canjes", "c1"), { uid: "leo", por: "leo", estado: "pendiente", coste: 40 });
+  });
+  await assertFails(updateDoc(doc(como("leo"), "hogares", H, "canjes", "c1"), { estado: "entregado" }));
+  await assertSucceeds(updateDoc(doc(como("ana"), "hogares", H, "canjes", "c1"), { estado: "entregado" }));
+  await assertSucceeds(updateDoc(doc(como("ana"), "hogares", H, "miembros", "leo"), { gastado: 40 }));
 });
 
 test("los menores no pueden verificar sus tareas; los adultos sí", async () => {

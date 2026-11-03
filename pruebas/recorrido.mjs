@@ -391,6 +391,62 @@ if (!EN_VIVO) {
     await t.locator("#modal").waitFor({ state: "hidden", timeout: 5000 }).catch(() => {});
   });
 
+  const cerrarAvisos = async (p) => {
+    for (const b of await p.locator("#avisos-flotantes .aviso").getByRole("button", { name: "Cerrar" }).all()) await b.click().catch(() => {});
+  };
+
+  await paso("Misiones: Rubén ve el panel de adultos, añade un premio y encarga una misión", async () => {
+    await t.locator("#nav").getByRole("button", { name: "Misiones" }).click();
+    await t.getByText("Panel de adultos").waitFor();
+    await t.getByText("Objetivo familiar").waitFor();
+    await captura(t, "tablet-misiones");
+    await t.getByRole("button", { name: /Configurar/ }).click();
+    const f = t.locator('#modal form[data-form="premio"]');
+    await f.locator('input[name="emoji"]').fill("🍬");
+    await f.locator('input[name="nombre"]').fill("Una chuche");
+    await f.locator('input[name="coste"]').fill("5");
+    await f.getByRole("button", { name: "Añadir" }).click();
+    await t.locator("#modal").getByText("Una chuche").waitFor();
+    await captura(t, "tablet-config-misiones");
+    await t.locator("#modal").getByRole("button", { name: "Cerrar" }).click();
+    await t.getByRole("button", { name: /Encargar misión/ }).click();
+    await t.locator("#modal label.elegible", { hasText: "Hugo" }).click();
+    await t.locator('#modal select[name="tarea"]').selectOption("tender");
+    await t.locator("#modal").getByRole("button", { name: "Encargar y avisar" }).click();
+    await t.getByText("Misión encargada a Hugo").waitFor();
+  });
+
+  await paso("Misiones: Hugo cumple su encargo, Rubén le da «¡Perfecto!» y se celebra en su móvil", async () => {
+    await m.locator("#nav").getByRole("button", { name: "Misiones" }).click();
+    await m.getByText("Tus misiones de hoy").waitFor();
+    await cerrarAvisos(m);
+    await captura(m, "movil-menor-misiones");
+    await m.getByRole("button", { name: "Marcar hecha: Tender la lavadora" }).click();
+    await m.getByText(/se suman cuando lo verifique/).waitFor();
+    await t.getByText("Tareas por verificar").waitFor({ timeout: 15000 });
+    await t.locator("#modal").getByRole("button", { name: "Perfecto" }).first().click();
+    await m.locator(".celebracion").waitFor({ timeout: 15000 });
+    await m.waitForTimeout(900);
+    await captura(m, "movil-menor-celebracion");
+    await m.locator(".celebracion").click();
+    await m.getByRole("button", { name: "Hecha: Tender la lavadora" }).waitFor();
+  });
+
+  await paso("Tienda: Hugo canjea un premio y Rubén se lo entrega", async () => {
+    await cerrarAvisos(m);
+    m.once("dialog", (d) => d.accept());
+    await m.locator(".ticket", { hasText: "Una chuche" }).getByRole("button", { name: "Canjear" }).click();
+    await m.getByText(/¡Pedido!/).waitFor();
+    await t.locator("#modal").getByText("Premios por entregar").waitFor({ timeout: 15000 });
+    await captura(t, "tablet-entregar-premio");
+    await t.locator("#modal").getByRole("button", { name: "Entregar" }).first().click();
+    await t.getByText(/Entregado a Hugo/).waitFor();
+    await m.locator(".celebracion").waitFor({ timeout: 15000 });
+    await m.waitForTimeout(900);
+    await captura(m, "movil-menor-premio");
+    await m.locator(".celebracion").click();
+  });
+
   await paso("Rubén resta puntos a un menor", async () => {
     await t.locator("#nav").getByRole("button", { name: "Hoy" }).click();
     await t.getByRole("button", { name: /Restar puntos/ }).click();

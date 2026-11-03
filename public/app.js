@@ -43,14 +43,83 @@ const TIPOS_PLATO = [["comida", "Comida"], ["cena", "Cena"], ["postre", "Postre"
 const MINUTOS_INACTIVIDAD = 20; // en la tablet, tras este tiempo sin uso vuelve a preguntar «¿Quién eres?»
 const CATEGORIAS = { favoritos: "Favoritos", quiero_probar: "Quiero probar", especiales: "Especiales" };
 const SUBCATEGORIAS = ["Fin de semana", "Navidad", "Cumpleaños", "Verano", "Otra ocasión"];
-const TAREAS = [
-  { id: "poner_mesa", nombre: "Poner la mesa", hecho: "ha puesto la mesa", puntos: 10 },
-  { id: "quitar_mesa", nombre: "Quitar la mesa", hecho: "ha quitado la mesa", puntos: 10 },
-  { id: "llenar_lavavajillas", nombre: "Llenar el lavavajillas", hecho: "ha llenado el lavavajillas", puntos: 10 },
-  { id: "vaciar_lavavajillas", nombre: "Vaciar el lavavajillas", hecho: "ha vaciado el lavavajillas", puntos: 10 },
-  { id: "basura", nombre: "Sacar la basura", hecho: "ha sacado la basura", puntos: 5 },
-  { id: "compra", nombre: "Hacer la compra", hecho: "ha hecho la compra", puntos: 20 }
+// ---------- MISIONES: tareas de casa, niveles, rachas, logros, tienda y objetivo familiar ----------
+const ZONAS = [
+  { id: "cocina", nombre: "Cocina", emoji: "🍽️" },
+  { id: "habitacion", nombre: "Habitación", emoji: "🛏️" },
+  { id: "bano", nombre: "Baño", emoji: "🛁" },
+  { id: "ropa", nombre: "Colada", emoji: "🧺" },
+  { id: "casa", nombre: "Casa", emoji: "🏠" },
+  { id: "fuera", nombre: "Recados y más", emoji: "🛒" }
 ];
+// Puntos según el esfuerzo: 5 rápida · 10 corta · 15 media · 20-30 larga · 40 grande. «max» = veces que cuenta al día
+const T = (id, zona, emoji, nombre, hecho, puntos, min, max = 1) => ({ id, zona, emoji, nombre, hecho, puntos, min, max });
+const TAREAS = [
+  T("poner_mesa", "cocina", "🍽️", "Poner la mesa", "ha puesto la mesa", 10, 5, 2),
+  T("quitar_mesa", "cocina", "🧹", "Quitar la mesa", "ha quitado la mesa", 10, 5, 2),
+  T("llenar_lavavajillas", "cocina", "🫧", "Llenar el lavavajillas", "ha llenado el lavavajillas", 10, 10, 2),
+  T("vaciar_lavavajillas", "cocina", "🥣", "Vaciar el lavavajillas", "ha vaciado el lavavajillas", 10, 10, 2),
+  T("fregar", "cocina", "🧽", "Fregar los cacharros", "ha fregado los cacharros", 15, 15, 2),
+  T("encimera", "cocina", "✨", "Limpiar encimera y vitro", "ha dejado la cocina reluciente", 10, 10),
+  T("ayudar_cocinar", "cocina", "🥕", "Ayudar a cocinar", "ha ayudado a cocinar", 20, 30),
+  T("cocinar", "cocina", "🧑‍🍳", "Cocinar una comida o cena", "ha cocinado para la familia", 40, 60),
+  T("hacer_cama", "habitacion", "🛏️", "Hacer la cama", "ha hecho la cama", 5, 3),
+  T("ordenar_habitacion", "habitacion", "🧸", "Ordenar la habitación", "ha ordenado su habitación", 15, 15),
+  T("habitacion_fondo", "habitacion", "🧼", "Habitación a fondo", "ha limpiado a fondo su habitación", 30, 45),
+  T("sabanas", "habitacion", "🛌", "Cambiar las sábanas", "ha cambiado las sábanas", 15, 15),
+  T("lavabo", "bano", "🚰", "Limpiar el lavabo", "ha limpiado el lavabo", 10, 10),
+  T("bano_completo", "bano", "🛁", "Limpiar el baño entero", "ha limpiado el baño", 30, 40),
+  T("reponer_bano", "bano", "🧻", "Reponer papel y toallas", "ha repuesto el baño", 5, 5),
+  T("poner_lavadora", "ropa", "🌀", "Poner la lavadora", "ha puesto la lavadora", 10, 10),
+  T("tender", "ropa", "👕", "Tender la lavadora", "ha tendido la ropa", 15, 15),
+  T("recoger_ropa", "ropa", "🧺", "Recoger la ropa tendida", "ha recogido la ropa", 10, 10),
+  T("doblar_ropa", "ropa", "👚", "Doblar y guardar la ropa", "ha doblado y guardado la ropa", 15, 20),
+  T("planchar", "ropa", "♨️", "Planchar", "ha planchado", 25, 30),
+  T("basura", "casa", "🗑️", "Sacar la basura", "ha sacado la basura", 5, 5, 2),
+  T("reciclaje", "casa", "♻️", "Bajar el reciclaje", "ha bajado el reciclaje", 10, 10),
+  T("aspirar", "casa", "🌪️", "Aspirar o barrer", "ha aspirado la casa", 20, 25),
+  T("fregar_suelo", "casa", "🪣", "Fregar el suelo", "ha fregado el suelo", 25, 30),
+  T("polvo", "casa", "🪶", "Quitar el polvo", "ha quitado el polvo", 15, 20),
+  T("plantas", "casa", "🪴", "Regar las plantas", "ha regado las plantas", 5, 5),
+  T("compra", "fuera", "🛒", "Hacer la compra", "ha hecho la compra", 20, 45),
+  T("colocar_compra", "fuera", "📦", "Colocar la compra", "ha colocado la compra", 10, 10),
+  T("mascota", "fuera", "🐾", "Cuidar a la mascota", "ha cuidado a la mascota", 10, 20, 3),
+  T("ayudar_hermano", "fuera", "🤝", "Echar una mano a un hermano", "ha echado una mano a un hermano", 10, 15, 2)
+];
+const RAPIDAS = ["poner_mesa", "quitar_mesa", "llenar_lavavajillas", "vaciar_lavavajillas", "basura", "compra"];
+// Niveles de la brigada de cocina (XP = todos los puntos ganados; gastar en la tienda no baja de nivel)
+const NIVELES = [
+  [0, "Pinche", "🥄"], [100, "Ayudante", "🧽"], [250, "Commis", "🔪"], [500, "Chef de partida", "🍳"], [900, "Sous-chef", "🥘"],
+  [1400, "Chef", "🧑‍🍳"], [2000, "Chef ejecutivo", "⭐"], [3000, "Una estrella", "🌟"], [4500, "Dos estrellas", "✨"], [6500, "Leyenda KeKo", "👑"]
+];
+const BONUS_RACHA = { 3: 5, 7: 15, 14: 30, 30: 60, 60: 100, 100: 150 };
+const PUNTOS_PERFECTO = 10;
+const LOGROS = [
+  { id: "primera", emoji: "🚀", nombre: "Despegue", texto: "Primera tarea verificada", meta: 1, valor: (x) => x.total },
+  { id: "veinticinco", emoji: "💪", nombre: "Manos a la obra", texto: "25 tareas", meta: 25, valor: (x) => x.total },
+  { id: "cien", emoji: "💯", nombre: "Centenario", texto: "100 tareas", meta: 100, valor: (x) => x.total },
+  { id: "cama", emoji: "🛏️", nombre: "Cama de hotel", texto: "Hacer la cama 20 veces", meta: 20, valor: (x) => x.c.hacer_cama || 0 },
+  { id: "habitacion", emoji: "🧸", nombre: "Habitación de revista", texto: "10 tareas de habitación", meta: 10, valor: (x) => x.z.habitacion || 0 },
+  { id: "lavavajillas", emoji: "🫧", nombre: "Máster lavavajillas", texto: "15 veces el lavavajillas", meta: 15, valor: (x) => (x.c.llenar_lavavajillas || 0) + (x.c.vaciar_lavavajillas || 0) },
+  { id: "colada", emoji: "🧺", nombre: "Colada perfecta", texto: "15 tareas de colada", meta: 15, valor: (x) => x.z.ropa || 0 },
+  { id: "bano", emoji: "✨", nombre: "Brillo total", texto: "10 tareas del baño", meta: 10, valor: (x) => x.z.bano || 0 },
+  { id: "cocina", emoji: "🧑‍🍳", nombre: "Pinche de oro", texto: "Ayudar a cocinar o cocinar 10 veces", meta: 10, valor: (x) => (x.c.ayudar_cocinar || 0) + (x.c.cocinar || 0) },
+  { id: "racha7", emoji: "🔥", nombre: "Semana en llamas", texto: "Racha de 7 días", meta: 7, valor: (x) => x.mejor },
+  { id: "racha30", emoji: "☄️", nombre: "Imparable", texto: "Racha de 30 días", meta: 30, valor: (x) => x.mejor },
+  { id: "perfecto", emoji: "🎯", nombre: "Francotirador", texto: "5 días perfectos", meta: 5, valor: (x) => x.perfectos },
+  { id: "todoterreno", emoji: "🧭", nombre: "Todoterreno", texto: "Tareas de las 6 zonas de la casa", meta: ZONAS.length, valor: (x) => x.zonas },
+  { id: "excelencia", emoji: "🌟", nombre: "Excelencia", texto: "10 tareas valoradas «¡Perfecto!»", meta: 10, valor: (x) => x.estrellas }
+];
+const PREMIOS = [
+  { id: "postre", emoji: "🍨", nombre: "Elegir el postre", coste: 30 },
+  { id: "pantalla", emoji: "🎮", nombre: "30 min extra de pantalla", coste: 40 },
+  { id: "libre", emoji: "🎟️", nombre: "Librarte de una tarea", coste: 50 },
+  { id: "cena", emoji: "🍕", nombre: "Elegir la cena del sábado", coste: 60 },
+  { id: "peli", emoji: "🎬", nombre: "Elegir la peli familiar", coste: 80 },
+  { id: "hora", emoji: "🌙", nombre: "Volver 30 min más tarde", coste: 120 },
+  { id: "plan", emoji: "🎁", nombre: "Plan a solas con papá o mamá", coste: 200 }
+];
+const OBJETIVO = { puntos: 400, premio: "Noche de pizza y peli en familia" };
 const PUNTOS_RETO = 2;
 const EDAD_ADULTO = 21;
 
@@ -84,6 +153,7 @@ const guardarFotoWeb = httpsCallable(nube, "guardarFotoWeb", { timeout: 70000 })
 const S = {
   user: null, hogarId: null, hogar: null, yo: null,
   miembros: [], recetas: [], menus: {}, despensa: [], avisos: [], tareasHoy: [], tareasPendientes: [], pendientesVistos: 0,
+  canjes: [], canjesVistos: 0, celebrados: new Set(), zonaBolsa: "cocina", verLogrosDe: null,
   activoId: null, ultimoUso: Date.now(), retoInline: null,
   vista: "hoy", param: null, semana: 0, mesOffset: 0, modoCal: "semana", asignarA: null, filtro: "todas", busqueda: "",
   intercambio: null, borrador: null, editorFoto: null,
@@ -155,6 +225,7 @@ const ICONOS = {
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   check: '<path d="M5 12l5 5L20 7"/>',
   buscar: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  misiones: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
   chispa: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>'
 };
 const icono = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONOS[n]}</svg>`;
@@ -360,6 +431,38 @@ function datosMiembro(f, codigo) {
 }
 
 const FORMULARIOS = {
+  async reparto(f) {
+    const r = { diarias: f.getAll("diarias"), turnos: f.getAll("turnos"), personas: f.getAll("personas"), inicio: reparto().inicio };
+    await updateDoc(doc(db, "hogares", S.hogarId), { reparto: r });
+    cerrarModal(); notificar("Reparto guardado: las misiones de hoy ya están actualizadas"); render();
+  },
+  async objetivo(f) {
+    const puntos = Math.max(50, Math.min(5000, Number(f.get("puntos")) || OBJETIVO.puntos));
+    await updateDoc(doc(db, "hogares", S.hogarId), { objetivo: { puntos, premio: String(f.get("premio") || "").trim() || OBJETIVO.premio } });
+    notificar("Objetivo familiar guardado");
+  },
+  async premio(f) {
+    const nombre = String(f.get("nombre") || "").trim();
+    if (!nombre) return;
+    const nuevo = { id: "p" + Date.now().toString(36), emoji: String(f.get("emoji") || "").trim() || "🎁", nombre, coste: Math.max(5, Number(f.get("coste")) || 50) };
+    await updateDoc(doc(db, "hogares", S.hogarId), { premios: [...premios(), nuevo].sort((a, b) => a.coste - b.coste) });
+    modalConfigMisiones();
+  },
+  async "tarea-propia"(f) {
+    const nombre = String(f.get("nombre") || "").trim();
+    if (!nombre) return;
+    const nueva = { id: "x" + Date.now().toString(36), zona: f.get("zona") || "casa", emoji: String(f.get("emoji") || "").trim() || "⭐", nombre,
+      hecho: `ha hecho «${nombre.toLowerCase()}»`, puntos: Number(f.get("puntos")) || 15, min: 15, max: 1 };
+    await updateDoc(doc(db, "hogares", S.hogarId), { tareasPropias: [...(S.hogar?.tareasPropias || []), nueva] });
+    modalConfigMisiones();
+  },
+  async encargar(f) {
+    const uid = f.get("uid"), t = tareaDef(f.get("tarea"));
+    if (!uid || !t) return;
+    await addDoc(col$("tareas"), { tarea: t.id, uid, puntos: t.puntos, por: S.user.uid, quien: yoActivo().id, fecha: hoy(), estado: "asignada", encargo: true, creadoMs: Date.now(), ts: serverTimestamp() });
+    enviarAviso(`📋 ${nombreDe(uid)}, tienes una misión nueva: ${t.nombre} (+${t.puntos} ★)`, "texto", uid).catch(() => {});
+    cerrarModal(); notificar(`Misión encargada a ${nombreDe(uid)}`);
+  },
   async invitacion(f, form) {
     const nota = String(f.get("nota") || "").trim();
     const ref = await addDoc(collection(db, "invitaciones"), { creadaPor: S.user.uid, creadaMs: Date.now(), nota, usada: false });
@@ -486,6 +589,7 @@ function conectarHogar(hid) {
       S.yo = miembro(S.user.uid);
       if (!S.yo) return mostrarEntrada("unirse");
       aplicarTema();
+      if (!$("#app").hidden) vigilarNivel();
       listo("miembros");
     }, err),
     onSnapshot(query(col$("recetas"), orderBy("titulo")), (qs) => { S.recetas = qs.docs.map((d) => ({ id: d.id, ...d.data() })); listo("recetas"); }, err),
@@ -507,8 +611,26 @@ function conectarHogar(hid) {
       S.pendientesVistos = S.tareasPendientes.length;
       refrescar();
     }, err),
+    onSnapshot(query(col$("canjes"), orderBy("creadoMs", "desc"), limit(40)), (qs) => {
+      S.canjes = qs.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if ($("#app").hidden) return;
+      qs.docChanges().forEach((c) => {
+        const x = c.doc.data();
+        if (c.type === "modified" && x.estado === "entregado" && x.uid === yoActivo()?.id && !qs.metadata.hasPendingWrites) celebrar("¡Premio conseguido!", `${x.emoji || "🎁"} ${x.nombre}`, `−${x.coste} ★`);
+      });
+      const n = S.canjes.filter((c) => c.estado === "pendiente").length;
+      if (esJefe() && n > S.canjesVistos && $("#modal").hidden) modalVerificar();
+      S.canjesVistos = n;
+      refrescar();
+    }, err),
     onSnapshot(query(col$("tareas"), where("fecha", "==", hoy())), (qs) => {
       S.tareasHoy = qs.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.creadoMs || 0) - (b.creadoMs || 0));
+      qs.docChanges().forEach((c) => {
+        const x = c.doc.data();
+        if (c.type !== "modified" || !x.premio || x.uid !== yoActivo()?.id || S.celebrados.has(c.doc.id) || qs.metadata.hasPendingWrites) return;
+        S.celebrados.add(c.doc.id);
+        if (!$("#app").hidden) celebrar(x.top ? "¡Perfecto!" : "¡Misión verificada!", `+${x.premio} ★`, tareaDef(x.tarea).nombre);
+      });
       if (!$("#app").hidden) refrescar();
     }, err)
   );
@@ -608,16 +730,17 @@ document.addEventListener("focusout", () => setTimeout(() => {
 // RENDER
 // =========================================================
 function navItems() {
-  const items = [["hoy", "Hoy"], ["semana", "Menús"], ["recetas", "Recetas"], ["compra", "Compra"], ["yo", "Yo"]];
+  const items = [["hoy", "Hoy"], ["misiones", "Misiones"], ["semana", "Menús"], ["recetas", "Recetas"], ["compra", "Compra"], ["yo", "Yo"]];
   return esMenor() ? items.filter(([v]) => v !== "semana" && v !== "recetas") : items;
 }
 function render() {
   const vistaBase = { receta: "recetas", editor: "recetas" }[S.vista] || S.vista;
-  $("#nav").innerHTML = navItems().map(([v, t], i) =>
-    `${i === 4 ? '<span class="nav-hueco"></span>' : ""}<button data-accion="ir" data-vista="${v}" ${vistaBase === v ? 'aria-current="page"' : ""}>${icono(v)}${t}</button>`
+  const items = navItems();
+  $("#nav").innerHTML = items.map(([v, t], i) =>
+    `${i === items.length - 1 ? '<span class="nav-hueco"></span>' : ""}<button data-accion="ir" data-vista="${v}" ${vistaBase === v ? 'aria-current="page"' : ""}>${icono(v)}${t}</button>`
   ).join("");
   const sinLeer = S.avisos.filter((a) => a.de !== S.user.uid && (a.para === "todos" || a.para === S.user.uid) && (a.creadoMs || 0) > Number(localStorage.getItem("avisosLeidos") || 0)).length;
-  const titulos = { hoy: S.hogar?.nombre || "Hoy en casa", semana: "Planificador de menús", recetas: "Recetas", receta: "Receta", editor: S.param ? "Editar receta" : "Nueva receta", compra: "Lista de la compra", yo: "Mi perfil" };
+  const titulos = { hoy: S.hogar?.nombre || "Hoy en casa", semana: "Planificador de menús", recetas: "Recetas", receta: "Receta", editor: S.param ? "Editar receta" : "Nueva receta", compra: "Lista de la compra", yo: "Mi perfil", misiones: esMenor() ? "Tus misiones" : "Misiones de casa" };
   const yo = yoActivo();
   titulos.hoy = esMenor() ? `¡Hola, ${yo?.nombre || ""}!` : (comidaActual() === "comida" ? "¿Qué comemos hoy?" : "¿Qué cenamos hoy?");
   $("#cabecera").innerHTML = `
@@ -633,7 +756,7 @@ function render() {
       <h1>${esc(titulos[S.vista] || "")}</h1>
     </div>`;
   pintarBloqueo();
-  const vistas = { hoy: vistaHoy, semana: vistaSemana, recetas: vistaRecetas, receta: vistaReceta, editor: vistaEditor, compra: vistaCompra, yo: vistaYo };
+  const vistas = { hoy: vistaHoy, semana: vistaSemana, recetas: vistaRecetas, receta: vistaReceta, editor: vistaEditor, compra: vistaCompra, yo: vistaYo, misiones: vistaMisiones };
   $("#vista").innerHTML = (vistas[S.vista] || vistaHoy)();
 }
 
@@ -878,20 +1001,22 @@ function panelAvisos() {
 }
 
 function panelTareas() {
-  const texto = (t) => t.tarea === "penalizacion" ? esc(t.motivo || "Penalización") : esc(TAREAS.find((x) => x.id === t.tarea)?.hecho || t.tarea);
+  const texto = (t) => t.tarea === "penalizacion" ? esc(t.motivo || "Penalización") : esc(tareaDef(t.tarea).hecho);
   const estado = (t) => t.estado === "pendiente" ? `<span class="estado-tarea pendiente">⏳ por verificar</span>`
     : t.estado === "rechazada" ? `<span class="estado-tarea rechazada">✗ no contó</span>`
-    : `<span class="${t.puntos < 0 ? "estado-tarea resta" : "suave"}">${t.puntos > 0 ? "+" : ""}${t.puntos}</span>`;
+    : t.estado === "asignada" ? `<span class="estado-tarea asignada">📋 encargada</span>`
+    : `<span class="${t.puntos < 0 ? "estado-tarea resta" : "suave"}">${t.puntos > 0 ? "+" : ""}${t.premio ?? t.puntos}</span>`;
   const hechas = S.tareasHoy.map((t) => `<li>${avatar(miembro(t.uid), 32)}<span class="crece"><b>${esc(nombreDe(t.uid))}</b> ${texto(t)}</span>${estado(t)}</li>`).join("");
-  const pend = S.tareasPendientes.length;
-  return `<section class="tarjeta seccion">
-    <div class="fila" style="justify-content:space-between;margin-bottom:12px"><h2 class="h2">Tareas de casa</h2><span class="suave" style="font-size:14px">${esMenor() ? "un adulto las verifica" : "suman puntos"}</span></div>
+  const pend = S.tareasPendientes.length + S.canjes.filter((c) => c.estado === "pendiente").length;
+  return `${esMenor() ? panelMisionesHoy(yoActivo(), true) : ""}<section class="tarjeta seccion">
+    <div class="fila" style="justify-content:space-between;margin-bottom:12px"><h2 class="h2">Tareas de casa</h2>
+      <button class="btn btn-linea" data-accion="ir" data-vista="misiones">🏆 Misiones y premios ›</button></div>
     ${esJefe() ? `<div class="fila" style="margin-bottom:10px">
       ${pend ? `<button class="btn btn-acento" data-accion="ver-pendientes">✓ Verificar tareas (${pend})</button>` : ""}
       <button class="btn btn-peligro" data-accion="restar-puntos">− Restar puntos</button>
     </div>` : ""}
     <div class="botones-aviso">
-      ${TAREAS.map((t) => `<button class="btn" data-accion="tarea" data-tarea="${t.id}">${esc(t.nombre)} <span class="suave">+${t.puntos}</span></button>`).join("")}
+      ${RAPIDAS.map(tareaDef).map((t) => `<button class="btn" data-accion="tarea" data-tarea="${t.id}">${esc(t.nombre)} <span class="suave">+${t.puntos}</span></button>`).join("")}
     </div>
     ${hechas ? `<ul class="lista" style="margin-top:10px">${hechas}</ul>` : ""}
   </section>`;
@@ -915,13 +1040,140 @@ function panelRanking(completo = false) {
     <div class="ranking">
       ${lista.map((m, i) => `<div class="ranking-fila">
         <b>${i + 1}</b>${avatar(m, 36)}
-        <span>${esc(m.nombre)} ${i === 0 && puntosMes(m) > 0 ? '<span class="corona">· Líder del mes</span>' : ""}</span>
+        <span>${esc(m.nombre)} <span class="nivel-mini" title="${esc(nivelDe(m).nombre)}">${nivelDe(m).emoji}</span>${i === 0 && puntosMes(m) > 0 ? '<span class="corona">· Líder del mes</span>' : ""}</span>
         <b>${puntosMes(m)} pts</b>
         <div class="barra-progreso"><span style="width:${Math.round((puntosMes(m) / max) * 100)}%"></span></div>
       </div>`).join("")}
     </div>
-    ${completo ? `<p class="suave" style="font-size:14px;margin:14px 0 0">${TAREAS.map((t) => `${esc(t.nombre)} +${t.puntos}`).join(" · ")} · Reto del menú +${PUNTOS_RETO}. Quien gane el mes elige la cena especial del sábado.</p>` : ""}
+    ${completo ? `<p class="suave" style="font-size:14px;margin:14px 0 0">Cada tarea vale de 5 a 40 pts según el esfuerzo · «¡Perfecto!» +50 % · rachas y día perfecto dan bonus · reto del menú +${PUNTOS_RETO}. Quien gane el mes elige la cena especial del sábado.</p>` : ""}
   </section>`;
+}
+
+// ---------- MISIONES (pantallas) ----------
+const anillo = (hechas, total, dentro) => `<span class="anillo ${total && hechas >= total ? "lleno" : ""}" style="--p:${total ? Math.round((hechas / total) * 100) : 0}">${dentro}</span>`;
+function botonMision(x) {
+  const etiqueta = x.estado === "porhacer" ? "Marcar hecha" : x.estado === "ok" ? "Hecha" : "Por verificar";
+  return `<button class="mision ${x.estado}" data-accion="hacer-mision" data-tarea="${esc(x.def.id)}" ${x.estado !== "porhacer" ? "disabled" : ""} aria-label="${etiqueta}: ${esc(x.def.nombre)}">
+    <span class="m-emoji" aria-hidden="true">${x.def.emoji}</span>
+    <span class="m-txt"><b>${esc(x.def.nombre)}</b><small>${x.encargo ? "📋 Encargo · " : ""}${esc(zonaDe(x.def.zona).nombre)} · ~${x.def.min} min</small></span>
+    <span class="m-pts">+${x.def.puntos}</span>
+    <span class="m-check" aria-hidden="true">${x.estado === "ok" ? "✓" : x.estado === "pendiente" ? "⏳" : ""}</span>
+  </button>`;
+}
+function panelMisionesHoy(m, compacto = false) {
+  const l = estadoMisiones(m.id), ok = l.filter((x) => x.estado === "ok").length, perfecto = m.perfectoDia === hoy();
+  return `<section class="tarjeta seccion misiones-hoy">
+    <div class="mh-cab">${anillo(ok, l.length, `<b>${ok}/${l.length}</b>`)}
+      <div class="crece"><h2 class="h2">Tus misiones de hoy</h2>
+        <small class="suave">${perfecto ? "💯 ¡Día perfecto conseguido!" : l.length ? `Hazlas todas y ganas el bonus Día perfecto (+${PUNTOS_PERFECTO})` : "Hoy no tienes misiones fijas: elige alguna tarea extra."}</small></div>
+      ${compacto ? `<button class="btn" data-accion="ir" data-vista="misiones">Ver todo ›</button>` : ""}
+    </div>
+    ${l.length ? `<div class="lista-misiones">${l.map(botonMision).join("")}</div>` : ""}
+  </section>`;
+}
+function heroJugador(m) {
+  const nv = nivelDe(m), r = rachaDe(m), s = saldoDe(m), lg = logrosDe(m).length;
+  return `<section class="hero-jugador">
+    <div class="hj-cara">${avatar(m, 88)}<span class="hj-insignia" aria-hidden="true">${nv.emoji}</span></div>
+    <div class="hj-info">
+      <small class="hj-nivel">Nivel ${nv.i + 1} · ${esc(nv.nombre)}</small>
+      <strong>${esc(m.nombre)}</strong>
+      <div class="hj-xp" role="progressbar" aria-label="Progreso de nivel" aria-valuenow="${nv.pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${nv.pct}%"></span></div>
+      <small>${nv.siguiente ? `${nv.xp} / ${nv.hasta} XP · faltan ${nv.hasta - nv.xp} para <b>${esc(nv.siguiente)}</b>` : `${nv.xp} XP · ¡nivel máximo!`}</small>
+    </div>
+    <div class="hj-stats">
+      <div class="hj-stat ${r ? "fuego" : ""}"><b>🔥 ${r}</b><small>${r === 1 ? "día" : "días"} de racha</small></div>
+      <div class="hj-stat"><b>★ ${s}</b><small>para gastar</small></div>
+      <div class="hj-stat"><b>🏅 ${lg}/${LOGROS.length}</b><small>logros</small></div>
+    </div>
+  </section>`;
+}
+function panelControl() {
+  const pend = S.tareasPendientes.length + S.canjes.filter((c) => c.estado === "pendiente").length;
+  return `<section class="tarjeta seccion control-adultos">
+    <div class="fila" style="justify-content:space-between;margin-bottom:10px"><h2 class="h2">Panel de adultos</h2><span class="suave" style="font-size:14px">solo lo ves tú</span></div>
+    <div class="control-botones">
+      <button class="btn ${pend ? "btn-acento" : ""}" data-accion="ver-pendientes">✓ Revisar${pend ? ` (${pend})` : ""}</button>
+      <button class="btn" data-accion="encargar">📋 Encargar misión</button>
+      <button class="btn btn-peligro" data-accion="restar-puntos">− Restar puntos</button>
+      <button class="btn" data-accion="config-misiones">⚙️ Configurar</button>
+    </div>
+  </section>`;
+}
+function panelEquipoHoy(chicos) {
+  return `<section class="tarjeta seccion">
+    <div class="fila" style="justify-content:space-between;margin-bottom:12px"><h2 class="h2">Misiones de hoy</h2><span class="suave" style="font-size:14px">los turnos rotan cada día</span></div>
+    <div class="equipo-hoy">${chicos.map((m) => {
+      const l = estadoMisiones(m.id), ok = l.filter((x) => x.estado === "ok").length, nv = nivelDe(m), r = rachaDe(m);
+      return `<div class="eq-fila">${anillo(ok, l.length, avatar(m, 46))}
+        <div class="crece"><div class="eq-nombre"><b>${esc(m.nombre)}</b><small class="suave">${nv.emoji} ${esc(nv.nombre)}${r ? ` · 🔥 ${r}` : ""} · ${ok}/${l.length}</small></div>
+          <div class="chips-misiones">${l.length ? l.map((x) => `<button class="cm ${x.estado}" data-accion="mision-de" data-uid="${m.id}" data-tarea="${esc(x.def.id)}" ${x.estado !== "porhacer" ? "disabled" : ""}><span aria-hidden="true">${x.def.emoji}</span> ${esc(x.def.nombre)}${x.estado === "ok" ? " ✓" : x.estado === "pendiente" ? " ⏳" : ""}</button>`).join("") : `<span class="suave">Sin misiones hoy</span>`}</div>
+        </div></div>`;
+    }).join("")}</div>
+  </section>`;
+}
+function panelBolsa() {
+  const z = S.zonaBolsa || "cocina";
+  return `<section class="tarjeta seccion">
+    <div class="fila" style="justify-content:space-between;margin-bottom:10px"><h2 class="h2">Tareas extra</h2><span class="suave" style="font-size:14px">${esMenor() ? "más ★ para la tienda" : "apunta quién ha hecho qué"}</span></div>
+    <div class="chips-scroll zonas" role="tablist">${ZONAS.map((x) => `<button class="chip" role="tab" aria-selected="${x.id === z}" aria-pressed="${x.id === z}" data-accion="zona" data-zona="${x.id}"><span aria-hidden="true">${x.emoji}</span> ${esc(x.nombre)}</button>`).join("")}</div>
+    <div class="bolsa">${catalogo().filter((t) => t.zona === z).map((t) => `<button class="tarea-card" data-accion="tarea" data-tarea="${esc(t.id)}">
+      <span class="tc-emoji" aria-hidden="true">${esc(t.emoji)}</span><span class="tc-txt"><b>${esc(t.nombre)}</b><small>~${t.min} min</small></span><span class="tc-pts">+${t.puntos}</span></button>`).join("")}</div>
+  </section>`;
+}
+function panelObjetivo() {
+  const o = objetivo(), v = S.hogar?.equipo?.[lunesIso()] || 0, pct = Math.min(100, Math.round((v / o.puntos) * 100)), hecho = v >= o.puntos;
+  return `<section class="tarjeta seccion objetivo-familiar ${hecho ? "hecho" : ""}">
+    <div class="fila" style="justify-content:space-between"><h2 class="h2">Objetivo familiar</h2><span class="suave" style="font-size:14px">esta semana · todos juntos</span></div>
+    <div class="of-premio"><span aria-hidden="true">${hecho ? "🎉" : "🎯"}</span> ${esc(o.premio)}</div>
+    <div class="of-barra" role="progressbar" aria-label="Objetivo familiar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>
+    <div class="of-pie"><b>${v} / ${o.puntos} pts</b><span>${hecho ? "¡Conseguido!" : `faltan ${o.puntos - v}`}</span></div>
+  </section>`;
+}
+function panelTienda(m) {
+  const s = saldoDe(m), mios = canjesPendientes(m.id), menor = m.rol === "menor";
+  return `<section class="tarjeta seccion">
+    <div class="fila" style="justify-content:space-between;margin-bottom:12px"><h2 class="h2">Tienda de premios</h2>${menor ? `<span class="saldo">★ ${s}</span>` : `<span class="suave" style="font-size:14px">los chicos canjean sus ★</span>`}</div>
+    ${mios.length ? `<div class="canje-espera">⏳ Esperando a que un adulto te lo dé: ${mios.map((c) => esc(c.nombre)).join(", ")}</div>` : ""}
+    <div class="tienda">${premios().map((p) => {
+      const falta = p.coste - s;
+      return `<div class="ticket ${menor && falta > 0 ? "bloqueado" : ""}">
+        <span class="tk-emoji" aria-hidden="true">${esc(p.emoji)}</span>
+        <span class="tk-txt"><b>${esc(p.nombre)}</b><small>${p.coste} ★</small>${menor && falta > 0 ? `<span class="tk-barra"><span style="width:${Math.round((s / p.coste) * 100)}%"></span></span>` : ""}</span>
+        ${menor ? (falta > 0 ? `<span class="tk-falta">faltan ${falta}</span>` : `<button class="btn btn-acento" data-accion="canjear" data-id="${esc(p.id)}">Canjear</button>`) : ""}
+      </div>`;
+    }).join("")}</div>
+    <p class="suave" style="font-size:13px;margin:10px 0 0">Las ★ se ganan con tareas verificadas y retos. Gastarlas no baja el nivel ni el puesto en la liga.</p>
+  </section>`;
+}
+function panelLogros(m) {
+  const x = metricas(m), hechos = logrosDe(m);
+  return `<section class="tarjeta seccion">
+    <div class="fila" style="justify-content:space-between;margin-bottom:12px"><h2 class="h2">Logros${m.id !== yoActivo()?.id ? ` de ${esc(m.nombre)}` : ""}</h2><span class="suave" style="font-size:14px">${hechos.length} de ${LOGROS.length}</span></div>
+    <div class="logros">${LOGROS.map((l) => {
+      const v = Math.min(l.meta, l.valor(x)), ok = hechos.includes(l.id);
+      return `<div class="logro ${ok ? "ok" : ""}"><span class="medalla" aria-hidden="true">${l.emoji}</span><b>${esc(l.nombre)}</b><small>${ok ? esc(l.texto) : `${v}/${l.meta} · ${esc(l.texto)}`}</small></div>`;
+    }).join("")}</div>
+  </section>`;
+}
+function vistaMisiones() {
+  const yo = yoActivo(), chicos = S.miembros.filter((m) => m.rol === "menor");
+  const verLogros = esMenor() ? yo : (miembro(S.verLogrosDe) || chicos[0] || yo);
+  return `<div class="misiones">
+    <div class="pila">
+      ${heroJugador(yo)}
+      ${esJefe() ? panelControl() : ""}
+      ${esMenor() ? panelMisionesHoy(yo) : chicos.length ? panelEquipoHoy(chicos) : ""}
+      ${panelBolsa()}
+    </div>
+    <div class="pila">
+      ${panelObjetivo()}
+      ${panelTienda(yo)}
+      ${!esMenor() && chicos.length > 1 ? `<div class="chips-scroll">${chicos.map((m) => `<button class="chip" aria-pressed="${m.id === verLogros.id}" data-accion="ver-logros" data-id="${m.id}">${esc(m.nombre)}</button>`).join("")}</div>` : ""}
+      ${panelLogros(verLogros)}
+      ${panelRanking(true)}
+    </div>
+  </div>`;
 }
 
 function vistaHoy() {
@@ -1277,6 +1529,9 @@ async function fusionarMiembros(dup, keep) {
   const lote = writeBatch(db);
   lote.update(ref$("miembros", keep.id), {
     puntos,
+    gastado: (keep.gastado || 0) + (dup.gastado || 0),
+    contador: Object.fromEntries([...new Set([...Object.keys(keep.contador || {}), ...Object.keys(dup.contador || {})])].map((k) => [k, (keep.contador?.[k] || 0) + (dup.contador?.[k] || 0)])),
+    logros: { ...(dup.logros || {}), ...(keep.logros || {}) },
     resueltos: { ...(dup.resueltos || {}), ...(keep.resueltos || {}) },
     tokens: [...new Set([...(keep.tokens || []), ...(dup.tokens || [])])],
     foto: keep.foto || dup.foto || null,
@@ -1325,7 +1580,7 @@ async function compartirInvitacion(id, nota) {
 
 // ---------- REINICIOS ----------
 const REINICIOS = {
-  puntos: { titulo: "Puntos y tareas", texto: "Pone a 0 los puntos de todos y borra el historial de tareas." },
+  puntos: { titulo: "Puntos y misiones", texto: "Pone a 0 puntos, niveles, rachas y logros, y borra el historial de tareas y premios." },
   menus: { titulo: "Menús planificados", texto: "Quita todas las comidas y cenas del calendario (las recetas se quedan)." },
   recetas: { titulo: "Recetas", texto: "Borra todas las recetas. Los menús que las usaban se quedan sin receta." },
   compra: { titulo: "Lista de la compra", texto: "Vacía la lista de la compra y lo que hay en casa." },
@@ -1354,9 +1609,12 @@ async function reiniciar(que) {
   const yo = S.user.uid;
   if (que === "puntos") {
     const lote = writeBatch(db);
-    S.miembros.forEach((m) => lote.update(ref$("miembros", m.id), { puntos: {} }));
+    const limpio = { puntos: {}, gastado: 0, contador: {}, logros: {}, estrellas: 0, perfectos: 0, racha: deleteField(), perfectoDia: deleteField() };
+    S.miembros.forEach((m) => lote.update(ref$("miembros", m.id), limpio));
+    lote.update(doc(db, "hogares", S.hogarId), { equipo: {} });
     await lote.commit();
-    return `${await borrarColeccion("tareas")} tareas borradas y puntos a 0`;
+    await borrarColeccion("canjes");
+    return `${await borrarColeccion("tareas")} tareas borradas y puntos, niveles y logros a 0`;
   }
   if (que === "menus") return `${await borrarColeccion("menus")} comidas/cenas quitadas`;
   if (que === "recetas") return `${await borrarColeccion("recetas")} recetas borradas`;
@@ -1426,37 +1684,178 @@ function panelHogar() {
 // =========================================================
 // ACCIONES DE DATOS
 // =========================================================
+// =========================================================
+// MISIONES (lógica)
+// =========================================================
+const tareasPropias = () => (S.hogar?.tareasPropias || []).map((t) => ({ emoji: "⭐", min: 15, max: 1, zona: "casa", ...t }));
+const catalogo = () => [...TAREAS, ...tareasPropias()];
+const tareaDef = (id) => catalogo().find((t) => t.id === id) || { id, nombre: id, hecho: "ha hecho una tarea", puntos: 0, zona: "casa", emoji: "⭐", min: 0, max: 1 };
+const zonaDe = (id) => ZONAS.find((z) => z.id === id) || ZONAS[4];
+const premios = () => (S.hogar?.premios?.length ? S.hogar.premios : PREMIOS);
+const objetivo = () => ({ ...OBJETIVO, ...(S.hogar?.objetivo || {}) });
+const xpDe = (m) => Object.values(m?.puntos || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+const canjesPendientes = (uid) => S.canjes.filter((c) => c.uid === uid && c.estado === "pendiente");
+const saldoDe = (m) => Math.max(0, xpDe(m) - (m?.gastado || 0) - canjesPendientes(m?.id).reduce((a, c) => a + (c.coste || 0), 0));
+const lunesIso = (d = new Date()) => iso(lunesDe(d));
+const ayerDe = (f) => iso(masDias(deIso(f), -1));
+const diasEntre = (a, b) => Math.round((deIso(b) - deIso(a)) / 86400000);
+const rachaDe = (m) => { const r = m?.racha; return r && (r.ultimo === hoy() || r.ultimo === ayerDe(hoy())) ? r.n || 0 : 0; };
+function nivelDe(m) {
+  const xp = Math.max(0, xpDe(m));
+  let i = 0;
+  while (i < NIVELES.length - 1 && xp >= NIVELES[i + 1][0]) i++;
+  const [desde, nombre, emoji] = NIVELES[i], sig = NIVELES[i + 1];
+  return { i, nombre, emoji, xp, desde, hasta: sig?.[0], siguiente: sig?.[1], pct: sig ? Math.round(((xp - desde) / (sig[0] - desde)) * 100) : 100 };
+}
+function metricas(m) {
+  const c = m?.contador || {}, z = {};
+  Object.entries(c).forEach(([id, n]) => { const zona = tareaDef(id).zona; z[zona] = (z[zona] || 0) + n; });
+  return { c, z, total: Object.values(c).reduce((a, b) => a + b, 0), mejor: m?.racha?.mejor || 0, perfectos: m?.perfectos || 0,
+    estrellas: m?.estrellas || 0, zonas: Object.values(z).filter(Boolean).length };
+}
+const logrosDe = (m) => { const x = metricas(m); return LOGROS.filter((l) => m?.logros?.[l.id] || l.valor(x) >= l.meta).map((l) => l.id); };
+
+// Reparto: unas tareas son diarias para cada chico y otras van por turnos que rotan cada día
+function reparto() {
+  const r = S.hogar?.reparto;
+  if (r) return { diarias: r.diarias || [], turnos: r.turnos || [], personas: (r.personas || []).filter((id) => miembro(id)), inicio: r.inicio || "2026-01-05" };
+  return { diarias: ["hacer_cama"], turnos: ["poner_mesa", "quitar_mesa", "vaciar_lavavajillas", "basura"],
+    personas: S.miembros.filter((m) => m.rol === "menor").map((m) => m.id), inicio: "2026-01-05" };
+}
+function misionesRota(uid, fecha = hoy()) {
+  const r = reparto(), n = r.personas.length, k = r.personas.indexOf(uid);
+  if (k < 0) return [];
+  const d = diasEntre(r.inicio, fecha);
+  return [...r.diarias, ...r.turnos.filter((_, i) => (((i + d) % n) + n) % n === k)];
+}
+// Misiones de hoy de una persona con su estado: porhacer · pendiente (falta verificar) · ok
+function estadoMisiones(uid) {
+  const regs = S.tareasHoy.filter((t) => t.uid === uid && t.tarea !== "penalizacion" && t.estado !== "rechazada");
+  const usados = new Set();
+  const lista = misionesRota(uid).map((id) => {
+    const r = regs.find((t) => t.tarea === id && !t.encargo && !usados.has(t.id));
+    if (r) usados.add(r.id);
+    return { def: tareaDef(id), estado: !r ? "porhacer" : r.estado === "ok" ? "ok" : "pendiente", reg: r };
+  });
+  regs.filter((t) => t.encargo).forEach((t) => lista.push({ def: { ...tareaDef(t.tarea), puntos: t.puntos }, encargo: true, reg: t,
+    estado: t.estado === "asignada" ? "porhacer" : t.estado === "ok" ? "ok" : "pendiente" }));
+  return lista;
+}
+
 async function sumarPuntos(uid, n) {
   if (!uid || !n) return;
   await updateDoc(ref$("miembros", uid), { [`puntos.${mes()}`]: increment(n) });
 }
-async function registrarTarea(tareaId, uid) {
-  const t = TAREAS.find((x) => x.id === tareaId);
-  const pendiente = miembro(uid)?.rol === "menor" && !esJefe();
-  await addDoc(col$("tareas"), { tarea: tareaId, uid, puntos: t.puntos, por: S.user.uid, quien: yoActivo().id, fecha: hoy(),
-    estado: pendiente ? "pendiente" : "ok", creadoMs: Date.now(), ts: serverTimestamp() });
-  if (pendiente) return notificar(`Apuntado. Los ${t.puntos} puntos de ${nombreDe(uid)} se suman cuando lo verifique un adulto.`);
-  await sumarPuntos(uid, t.puntos);
-  notificar(`+${t.puntos} para ${nombreDe(uid)}`);
+// Da los puntos de una tarea hecha (solo lo hace un adulto): calidad, racha, día perfecto, logros, nivel y objetivo familiar
+async function premiarTarea(t, top = false) {
+  const m = miembro(t.uid);
+  if (!m) return { total: 0, extras: [] };
+  const fecha = t.fecha || hoy();
+  const extra = top ? Math.ceil(t.puntos / 2) : 0;
+  let total = t.puntos + extra;
+  const extras = extra ? [`★ ¡Perfecto! +${extra}`] : [];
+  const cambios = { [`contador.${t.tarea}`]: increment(1) };
+  const despues = { ...m, contador: { ...(m.contador || {}), [t.tarea]: (m.contador?.[t.tarea] || 0) + 1 }, estrellas: (m.estrellas || 0) + (top ? 1 : 0) };
+  if (top) cambios.estrellas = increment(1);
+  const r = m.racha || {};
+  if (r.ultimo !== fecha) {
+    const n = r.ultimo === ayerDe(fecha) ? (r.n || 0) + 1 : 1;
+    cambios.racha = despues.racha = { n, ultimo: fecha, mejor: Math.max(n, r.mejor || 0) };
+    if (BONUS_RACHA[n]) { total += BONUS_RACHA[n]; extras.push(`🔥 Racha de ${n} días +${BONUS_RACHA[n]}`); }
+  }
+  if (fecha === hoy() && m.perfectoDia !== fecha) {
+    let usada = false;
+    const lista = estadoMisiones(t.uid);
+    const completa = lista.length > 0 && lista.every((x) => {
+      if (x.estado === "ok" || x.reg?.id === t.id) return true;
+      if (!usada && !x.reg && x.def.id === t.tarea) { usada = true; return true; }
+      return false;
+    });
+    if (completa) {
+      total += PUNTOS_PERFECTO; cambios.perfectoDia = fecha; cambios.perfectos = increment(1);
+      despues.perfectos = (m.perfectos || 0) + 1; extras.push(`💯 Día perfecto +${PUNTOS_PERFECTO}`);
+    }
+  }
+  despues.puntos = { ...(m.puntos || {}), [mes()]: (m.puntos?.[mes()] || 0) + total };
+  const nuevos = logrosDe(despues).filter((id) => !m.logros?.[id]);
+  nuevos.forEach((id) => { cambios[`logros.${id}`] = fecha; });
+  cambios[`puntos.${mes()}`] = increment(total);
+  await updateDoc(ref$("miembros", t.uid), cambios);
+  const sem = lunesIso(deIso(fecha)), antes = S.hogar?.equipo?.[sem] || 0, o = objetivo();
+  updateDoc(doc(db, "hogares", S.hogarId), { [`equipo.${sem}`]: increment(total) }).catch(console.error);
+  const avisar = (texto) => enviarAviso(texto, "logro", "todos", { deNombre: "KeKoMeMos" }).catch(() => {});
+  if (antes < o.puntos && antes + total >= o.puntos) avisar(`🎉 ¡Objetivo familiar conseguido! Premio: ${o.premio}`);
+  nuevos.forEach((id) => { const l = LOGROS.find((x) => x.id === id); avisar(`🏅 ${m.nombre} ha conseguido el logro «${l.nombre}» (${l.texto})`); });
+  const n0 = nivelDe(m).i, n1 = nivelDe(despues).i;
+  if (n1 > n0) avisar(`⬆️ ${m.nombre} sube a nivel ${n1 + 1}: ${NIVELES[n1][1]} ${NIVELES[n1][2]}`);
+  return { total, extras, nuevos };
 }
-async function verificarTarea(id, ok) {
+async function registrarTarea(tareaId, uid) {
+  const t = tareaDef(tareaId);
+  const veces = S.tareasHoy.filter((x) => x.uid === uid && x.tarea === tareaId && ["ok", "pendiente"].includes(x.estado)).length;
+  if (veces >= (t.max || 1)) return notificar(`${nombreDe(uid)} ya tiene «${t.nombre}» apuntada hoy${t.max > 1 ? ` ${t.max} veces` : ""}.`);
+  const encargo = S.tareasHoy.find((x) => x.uid === uid && x.tarea === tareaId && x.estado === "asignada");
+  const pendiente = miembro(uid)?.rol === "menor" && !esJefe();
+  const datos = { estado: pendiente ? "pendiente" : "ok", hechoMs: Date.now() };
+  let reg;
+  if (encargo) {
+    await updateDoc(ref$("tareas", encargo.id), datos);
+    reg = { ...encargo, ...datos };
+  } else {
+    const nuevo = { tarea: tareaId, uid, puntos: t.puntos, por: S.user.uid, quien: yoActivo().id, fecha: hoy(), creadoMs: Date.now(), ts: serverTimestamp(), ...datos };
+    const r = await addDoc(col$("tareas"), nuevo);
+    reg = { id: r.id, ...nuevo };
+  }
+  if (pendiente) return notificar(`Apuntado. Los ${reg.puntos} puntos de ${nombreDe(uid)} se suman cuando lo verifique un adulto.`);
+  const p = await premiarTarea(reg);
+  updateDoc(ref$("tareas", reg.id), { premio: p.total }).catch(() => {});
+  notificar(`+${p.total} para ${nombreDe(uid)}${p.extras.length ? " · " + p.extras.join(" · ") : ""}`);
+}
+async function verificarTarea(id, ok, top = false) {
   const t = S.tareasPendientes.find((x) => x.id === id);
   if (!t) return;
-  await updateDoc(ref$("tareas", id), { estado: ok ? "ok" : "rechazada", verificadoPor: yoActivo().id });
-  if (ok) await sumarPuntos(t.uid, t.puntos);
+  if (!ok) return updateDoc(ref$("tareas", id), { estado: "rechazada", verificadoPor: yoActivo().id });
+  await updateDoc(ref$("tareas", id), { estado: "ok", verificadoPor: yoActivo().id, top });
+  const p = await premiarTarea(t, top);
+  await updateDoc(ref$("tareas", id), { premio: p.total });
+  notificar(`+${p.total} para ${nombreDe(t.uid)}${p.extras.length ? " · " + p.extras.join(" · ") : ""}`);
+}
+async function resolverCanje(id, ok) {
+  const c = S.canjes.find((x) => x.id === id), m = c && miembro(c.uid);
+  if (!c) return;
+  const fin = { porQuien: yoActivo().id, resueltoMs: Date.now() };
+  if (ok && m && xpDe(m) - (m.gastado || 0) >= c.coste) {
+    const lote = writeBatch(db);
+    lote.update(ref$("canjes", id), { estado: "entregado", ...fin });
+    lote.update(ref$("miembros", c.uid), { gastado: increment(c.coste) });
+    await lote.commit();
+    return notificar(`🎁 Entregado a ${m.nombre}: ${c.nombre}`);
+  }
+  if (ok) notificar(`${m?.nombre || "Esa persona"} ya no tiene ★ suficientes.`);
+  await updateDoc(ref$("canjes", id), { estado: "rechazado", ...fin });
 }
 function modalVerificar() {
-  const lista = S.tareasPendientes;
-  if (!lista.length) return notificar("No hay tareas por verificar.");
+  const lista = S.tareasPendientes, canjes = S.canjes.filter((c) => c.estado === "pendiente");
+  if (!lista.length && !canjes.length) return notificar("No hay nada por revisar.");
+  const fecha = (f) => (f === hoy() ? "hoy" : f.split("-").reverse().join("/"));
   abrirModal(`${cabeceraModal("Tareas por verificar")}
-    <p class="suave" style="margin:0">Los chicos dicen que han hecho esto. Los puntos solo se suman si lo confirmas.</p>
-    <ul class="lista verificar">${lista.map((t) => `<li>${avatar(miembro(t.uid), 40)}
-      <span class="crece"><b>${esc(nombreDe(t.uid))}</b> ${esc(TAREAS.find((x) => x.id === t.tarea)?.hecho || t.tarea)}<br><small class="suave">${esc(t.fecha === hoy() ? "hoy" : t.fecha.split("-").reverse().join("/"))} · +${t.puntos} pts</small></span>
-      <button class="btn btn-primario" data-accion="verificar" data-id="${t.id}" data-ok="1" aria-label="Confirmar">✓ Sí</button>
-      <button class="btn btn-peligro" data-accion="verificar" data-id="${t.id}" data-ok="0" aria-label="Rechazar">✗ No</button>
-    </li>`).join("")}</ul>`);
+    ${lista.length ? `<p class="suave" style="margin:0">Los chicos dicen que han hecho esto. Los puntos solo se suman si lo confirmas. «¡Perfecto!» le da un 50 % extra.</p>
+    <ul class="lista verificar">${lista.map((t) => { const d = tareaDef(t.tarea); return `<li>${avatar(miembro(t.uid), 40)}
+      <span class="crece"><b>${esc(nombreDe(t.uid))}</b> ${esc(d.hecho)} <span aria-hidden="true">${d.emoji}</span><br><small class="suave">${esc(fecha(t.fecha))} · +${t.puntos} pts</small></span>
+      <span class="verificar-botones">
+        <button class="btn btn-primario" data-accion="verificar" data-id="${t.id}" data-ok="1" aria-label="Confirmar">✓ Sí</button>
+        <button class="btn btn-acento" data-accion="verificar" data-id="${t.id}" data-ok="2" aria-label="Perfecto">★ ¡Perfecto!</button>
+        <button class="btn btn-peligro" data-accion="verificar" data-id="${t.id}" data-ok="0" aria-label="Rechazar">✗ No</button>
+      </span></li>`; }).join("")}</ul>` : ""}
+    ${canjes.length ? `<h3 class="h2" style="margin-top:8px">Premios por entregar</h3>
+    <ul class="lista verificar">${canjes.map((c) => `<li>${avatar(miembro(c.uid), 40)}
+      <span class="crece"><b>${esc(nombreDe(c.uid))}</b> quiere <span aria-hidden="true">${esc(c.emoji || "🎁")}</span> «${esc(c.nombre)}»<br><small class="suave">${c.coste} ★ · tiene ${Math.max(0, xpDe(miembro(c.uid)) - (miembro(c.uid)?.gastado || 0))} ★</small></span>
+      <span class="verificar-botones">
+        <button class="btn btn-primario" data-accion="canje" data-id="${c.id}" data-ok="1" aria-label="Entregar">🎁 Entregar</button>
+        <button class="btn btn-peligro" data-accion="canje" data-id="${c.id}" data-ok="0" aria-label="No entregar">✗ No</button>
+      </span></li>`).join("")}</ul>` : ""}`);
 }
-const MOTIVOS_RESTA = ["No ha quitado la mesa", "No ha puesto la mesa", "No ha vaciado el lavavajillas", "No ha llenado el lavavajillas", "No ha hecho la compra", "No ha sacado la basura", "Otro motivo"];
+const MOTIVOS_RESTA = ["No ha hecho su tarea", "No ha quitado la mesa", "No ha hecho la cama", "Habitación desordenada", "Ha dicho que la hizo y no", "Mal comportamiento", "Otro motivo"];
 function modalRestar() {
   const menores = S.miembros.filter((m) => m.rol === "menor");
   if (!menores.length) return notificar("No hay menores en la familia.");
@@ -1470,6 +1869,71 @@ function modalRestar() {
         <div class="chips">${[2, 5, 10, 20].map((n, i) => `<label class="chip"><input type="radio" name="n" value="${n}" ${i === 1 ? "checked" : ""}> −${n}</label>`).join("")}</div></fieldset>
       <button class="btn btn-peligro btn-grande">Restar puntos</button>
     </form>`);
+}
+function modalEncargar() {
+  const chicos = S.miembros.filter((m) => m.rol === "menor");
+  if (!chicos.length) return notificar("No hay menores en la familia.");
+  abrirModal(`${cabeceraModal("Encargar una misión")}
+    <form class="pila" data-form="encargar">
+      <fieldset class="campo"><legend>¿Para quién?</legend>
+        <div class="selector-cocinero">${chicos.map((m, i) => `<label class="elegible"><input type="radio" name="uid" value="${m.id}" ${i === 0 ? "checked" : ""}>${avatar(m, 64)}<span>${esc(m.nombre)}</span></label>`).join("")}</div></fieldset>
+      <label class="campo">¿Qué tiene que hacer hoy?
+        <select name="tarea">${ZONAS.map((z) => `<optgroup label="${z.emoji} ${esc(z.nombre)}">${catalogo().filter((t) => t.zona === z.id).map((t) => `<option value="${esc(t.id)}">${esc(t.nombre)} · +${t.puntos}</option>`).join("")}</optgroup>`).join("")}</select></label>
+      <button class="btn btn-primario btn-grande">Encargar y avisar</button>
+    </form>`);
+}
+function modalConfigMisiones() {
+  const r = reparto(), o = objetivo(), chicos = S.miembros.filter((m) => m.rol === "menor");
+  const chipsTareas = (name, sel) => ZONAS.map((z) => `<div class="cfg-zona"><small>${z.emoji} ${esc(z.nombre)}</small><div class="chips">${catalogo().filter((t) => t.zona === z.id)
+    .map((t) => `<label class="chip"><input type="checkbox" name="${name}" value="${esc(t.id)}" ${sel.includes(t.id) ? "checked" : ""}> ${esc(t.nombre)}</label>`).join("")}</div></div>`).join("");
+  abrirModal(`${cabeceraModal("Configurar misiones")}
+    <div class="pila config-misiones">
+    <form class="pila" data-form="reparto">
+      <h3 class="h2">1 · Reparto de misiones</h3>
+      <fieldset class="campo"><legend>¿Quién entra en el reparto?</legend><div class="chips">${chicos.map((m) => `<label class="chip"><input type="checkbox" name="personas" value="${m.id}" ${r.personas.includes(m.id) ? "checked" : ""}> ${esc(m.nombre)}</label>`).join("") || '<span class="suave">Aún no hay menores</span>'}</div></fieldset>
+      <fieldset class="campo"><legend>Cada día, para cada uno</legend><p class="suave cfg-ayuda">Lo que cada chico hace siempre (por ejemplo, su cama).</p>${chipsTareas("diarias", r.diarias)}</fieldset>
+      <fieldset class="campo"><legend>Por turnos (rotan cada día)</legend><p class="suave cfg-ayuda">Se reparten entre ellos y cada día le toca a otro: nadie repite siempre lo mismo.</p>${chipsTareas("turnos", r.turnos)}</fieldset>
+      <button class="btn btn-primario btn-grande">Guardar reparto</button>
+    </form>
+    <form class="pila" data-form="objetivo">
+      <h3 class="h2">2 · Objetivo familiar de la semana</h3>
+      <div class="fila"><label class="campo crece">Premio para todos <input name="premio" maxlength="60" required value="${esc(o.premio)}"></label>
+      <label class="campo">Puntos entre todos <input name="puntos" type="number" min="50" max="5000" step="10" required value="${o.puntos}"></label></div>
+      <button class="btn btn-primario">Guardar objetivo</button>
+    </form>
+    <div class="pila">
+      <h3 class="h2">3 · Premios de la tienda</h3>
+      <ul class="lista">${premios().map((p, i) => `<li><span aria-hidden="true">${esc(p.emoji)}</span><span class="crece">${esc(p.nombre)}</span><b>${p.coste} ★</b><button class="btn-x" data-accion="borrar-premio" data-i="${i}" aria-label="Quitar ${esc(p.nombre)}">×</button></li>`).join("")}</ul>
+      <form class="fila" data-form="premio"><input name="emoji" maxlength="4" placeholder="🎁" aria-label="Emoji" class="cfg-emoji"><input name="nombre" required maxlength="50" placeholder="Nuevo premio" class="crece" aria-label="Nombre del premio"><input name="coste" type="number" min="5" max="2000" step="5" value="50" class="cfg-num" aria-label="Coste en estrellas"><button class="btn btn-primario">Añadir</button></form>
+    </div>
+    <div class="pila">
+      <h3 class="h2">4 · Tareas propias de la familia</h3>
+      ${tareasPropias().length ? `<ul class="lista">${tareasPropias().map((t, i) => `<li><span aria-hidden="true">${esc(t.emoji)}</span><span class="crece">${esc(t.nombre)} <small class="suave">${esc(zonaDe(t.zona).nombre)}</small></span><b>+${t.puntos}</b><button class="btn-x" data-accion="borrar-tarea-propia" data-i="${i}" aria-label="Quitar ${esc(t.nombre)}">×</button></li>`).join("")}</ul>` : `<p class="suave" style="margin:0">Añade las que solo hacéis en casa (pasear al perro, la piscina, el coche…).</p>`}
+      <form class="fila" data-form="tarea-propia"><input name="emoji" maxlength="4" placeholder="⭐" aria-label="Emoji" class="cfg-emoji"><input name="nombre" required maxlength="40" placeholder="Ej.: Lavar el coche" class="crece" aria-label="Nombre de la tarea">
+        <select name="zona" aria-label="Zona">${ZONAS.map((z) => `<option value="${z.id}">${esc(z.nombre)}</option>`).join("")}</select>
+        <select name="puntos" aria-label="Puntos">${[5, 10, 15, 20, 25, 30, 40].map((n) => `<option ${n === 15 ? "selected" : ""}>${n}</option>`).join("")}</select>
+        <button class="btn btn-primario">Añadir</button></form>
+    </div></div>`, true);
+}
+// Fiesta en pantalla cuando un adulto verifica una tarea, se sube de nivel o se entrega un premio
+function celebrar(titulo, grande, texto = "") {
+  if ($("#bloqueo-reto")) return notificar(`${titulo} ${grande}`);
+  document.querySelector(".celebracion")?.remove();
+  const d = document.createElement("div");
+  d.className = "celebracion";
+  d.setAttribute("role", "status");
+  d.innerHTML = `<div class="cel-carta"><div class="cel-titulo">${esc(titulo)}</div><div class="cel-grande">${esc(grande)}</div>${texto ? `<p>${esc(texto)}</p>` : ""}<small>Toca para seguir</small></div>${estallido(60)}`;
+  d.addEventListener("click", () => d.remove());
+  document.body.appendChild(d);
+  navigator.vibrate?.([60, 40, 140]);
+  setTimeout(() => d.remove(), 4500);
+}
+function vigilarNivel() {
+  const yo = yoActivo();
+  if (!yo) return;
+  const k = `nivel-${yo.id}`, nv = nivelDe(yo).i, antes = Number(localStorage.getItem(k) ?? -1);
+  if (antes >= 0 && nv > antes) celebrar("¡Subes de nivel!", `${NIVELES[nv][2]} ${NIVELES[nv][1]}`, `Ya eres nivel ${nv + 1}`);
+  localStorage.setItem(k, String(nv));
 }
 async function asignarMenu(huecoId, r) {
   const [fecha, tipo] = huecoId.split("_");
@@ -1516,7 +1980,7 @@ function recibirAviso(a) {
     <div class="fila">${(RESPUESTAS[a.tipo] || []).map(([t, v]) => `<button class="btn btn-acento" data-accion="responder" data-id="${a.id}" data-valor="${esc(v)}">${esc(t)}</button>`).join("")}
     <button class="btn" data-accion="cerrar-aviso">Cerrar</button></div>`;
   $("#avisos-flotantes").appendChild(d);
-  setTimeout(() => d.remove(), 30000);
+  setTimeout(() => d.remove(), a.tipo === "logro" ? 9000 : 30000);
   if (!$("#app").hidden) render();
 }
 async function responderAviso(id, valor) {
@@ -1664,7 +2128,7 @@ function bannerPregunta() {
 }
 
 function modalTarea(tareaId) {
-  const t = TAREAS.find((x) => x.id === tareaId);
+  const t = tareaDef(tareaId);
   const personas = esMenor() ? [yoActivo()] : S.miembros;
   abrirModal(`${cabeceraModal(`¿Quién? · ${t.nombre}`)}
     <p class="suave">Suma ${t.puntos} puntos a quien lo haya hecho.</p>
@@ -1716,11 +2180,45 @@ const ACCIONES = {
   "ver-pendientes": () => modalVerificar(),
   verificar: async (d, el) => {
     el.closest("li")?.querySelectorAll("button").forEach((b) => { b.disabled = true; });
-    await verificarTarea(d.id, d.ok === "1");
+    await verificarTarea(d.id, d.ok !== "0", d.ok === "2");
     el.closest("li")?.remove();
     if (!$("#modal .verificar li")) cerrarModal();
   },
   "restar-puntos": () => modalRestar(),
+  canje: async (d, el) => {
+    el.closest("li")?.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    await resolverCanje(d.id, d.ok === "1");
+    el.closest("li")?.remove();
+    if (!$("#modal .verificar li")) cerrarModal();
+  },
+  canjear: async (d) => {
+    const p = premios().find((x) => x.id === d.id), yo = yoActivo();
+    if (!p || !yo) return;
+    if (saldoDe(yo) < p.coste) return notificar(`Te faltan ${p.coste - saldoDe(yo)} ★ para «${p.nombre}».`);
+    if (!confirmar(`¿Canjear ${p.coste} ★ por «${p.nombre}»? Un adulto te lo dará y entonces se descuentan.`)) return;
+    await addDoc(col$("canjes"), { uid: yo.id, por: S.user.uid, premioId: p.id, nombre: p.nombre, emoji: p.emoji || "🎁", coste: p.coste, estado: "pendiente", creadoMs: Date.now(), ts: serverTimestamp() });
+    enviarAviso(`🎁 ${yo.nombre} quiere canjear «${p.nombre}» (${p.coste} ★)`).catch(() => {});
+    notificar("¡Pedido! Cuando un adulto te lo dé, se descuentan las ★.");
+  },
+  "hacer-mision": async (d, el) => { el.disabled = true; await registrarTarea(d.tarea, yoActivo().id); },
+  "mision-de": async (d) => {
+    const t = tareaDef(d.tarea);
+    if (!confirmar(`¿${nombreDe(d.uid)} ha hecho «${t.nombre}»?`)) return;
+    await registrarTarea(d.tarea, d.uid);
+  },
+  zona: (d) => { S.zonaBolsa = d.zona; render(); },
+  "ver-logros": (d) => { S.verLogrosDe = d.id; render(); },
+  encargar: () => modalEncargar(),
+  "config-misiones": () => modalConfigMisiones(),
+  "borrar-premio": async (d) => {
+    const lista = premios().filter((_, i) => i !== Number(d.i));
+    await updateDoc(doc(db, "hogares", S.hogarId), { premios: lista.length ? lista : [] });
+    modalConfigMisiones();
+  },
+  "borrar-tarea-propia": async (d) => {
+    await updateDoc(doc(db, "hogares", S.hogarId), { tareasPropias: tareasPropias().filter((_, i) => i !== Number(d.i)) });
+    modalConfigMisiones();
+  },
   renombrar: (d) => {
     const m = miembro(d.id);
     abrirModal(`${cabeceraModal("Cambiar nombre")}
@@ -2157,7 +2655,7 @@ const ACCIONES = {
     const lote = writeBatch(db);
     comprados.forEach((x) => lote.update(ref$("despensa", x.id), { estado: "hay", por: S.user.uid }));
     await lote.commit();
-    if (comprados.length >= 3 && confirmar(`¿Has hecho tú la compra? (+${TAREAS.find((t) => t.id === "compra").puntos} puntos)`)) await registrarTarea("compra", S.user.uid);
+    if (comprados.length >= 3 && confirmar(`¿Has hecho tú la compra? (+${tareaDef("compra").puntos} puntos)`)) await registrarTarea("compra", S.user.uid);
   },
   "se-acabo": (d) => updateDoc(ref$("despensa", d.id), { estado: "falta", por: S.user.uid }),
   "borrar-item": (d) => deleteDoc(ref$("despensa", d.id)),

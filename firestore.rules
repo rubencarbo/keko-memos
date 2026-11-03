@@ -58,8 +58,10 @@ service cloud.firestore {
         allow create: if conSesion() && yoUid() == uid
           && request.resource.data.codigo == getAfter(/databases/$(database)/documents/hogares/$(hogar)).data.codigo;
         // Cada uno edita su perfil (sin cambiarse el rol); los adultos pueden editar a todos
+        // (los menores no pueden tocarse lo que se gana o se gasta en las misiones)
         allow update: if esAdulto()
-          || (yoUid() == uid && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'codigo']));
+          || (yoUid() == uid && !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['rol', 'codigo', 'gastado', 'contador', 'logros', 'racha', 'estrellas', 'perfectos', 'perfectoDia']));
         // Borrar (o fusionar duplicados): administrador, cualquier adulto o uno mismo; nunca al administrador
         allow delete: if (esAdulto() || yoUid() == uid)
           && uid != getAfter(/databases/$(database)/documents/hogares/$(hogar)).data.admin;
@@ -86,10 +88,21 @@ service cloud.firestore {
       }
       match /tareas/{id} {
         allow read: if esMiembro();
-        allow create: if esMiembro() && request.resource.data.por == yoUid();
-        // verificar (o rechazar) una tarea: solo adultos
-        allow update: if esAdulto();
+        // un menor solo puede apuntar tareas «pendientes» (las verifica un adulto)
+        allow create: if esMiembro() && request.resource.data.por == yoUid()
+          && (esAdulto() || request.resource.data.estado == 'pendiente');
+        // verificar (o rechazar) una tarea: solo adultos; el menor solo marca como hecha su misión encargada
+        allow update: if esAdulto()
+          || (resource.data.uid == yoUid() && resource.data.estado == 'asignada' && request.resource.data.estado == 'pendiente'
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'hechoMs']));
         allow delete: if esAdulto();
+      }
+      // Tienda de premios: cada uno pide su premio; solo un adulto lo entrega (y descuenta las estrellas)
+      match /canjes/{id} {
+        allow read: if esMiembro();
+        allow create: if esMiembro() && request.resource.data.por == yoUid() && request.resource.data.estado == 'pendiente'
+          && (esAdulto() || request.resource.data.uid == yoUid());
+        allow update, delete: if esAdulto();
       }
     }
   }
