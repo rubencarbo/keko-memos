@@ -16,9 +16,13 @@ const paginas = [];
 async function paso(texto, fn) {
   try { await fn(); nota(true, texto); } catch (e) {
     const lineas = String(e.message).split("\n").map((l) => l.trim()).filter(Boolean);
-    const donde = lineas.find((l) => /waiting for|intercepts|outside of the viewport|not visible|not stable/.test(l)) || "";
-    nota(false, `${texto} — ${lineas[0]}${donde ? " · " + donde.slice(0, 200) : ""}`);
-    for (const [p, quien] of paginas) await captura(p, `FALLO-${quien}`).catch(() => {});
+    const donde = lineas.filter((l) => /waiting for|intercepts|outside of the viewport|not visible|not stable|resolved|attempting|retrying/.test(l)).slice(-3).join(" | ");
+    nota(false, `${texto} — ${lineas[0]}${donde ? " · " + donde.slice(0, 500) : ""}`);
+    for (const [p, quien] of paginas) {
+      await captura(p, `FALLO-${quien}`).catch(() => {});
+      const encima = await p.evaluate(() => [[innerWidth / 2, innerHeight / 2], [60, innerHeight - 40]].map(([x, y]) => { const e = document.elementFromPoint(x, y); return e ? `${e.tagName}.${e.className}#${e.id}` : "-"; }).join(" , ")).catch(() => "?");
+      nota(false, `   (${quien}: encima → ${encima})`);
+    }
   }
 }
 const captura = (page, nombre) => page.screenshot({ path: `${DIR}/capturas/${String(++n).padStart(2, "0")}-${nombre}.png` });

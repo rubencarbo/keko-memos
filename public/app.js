@@ -1917,7 +1917,7 @@ function modalConfigMisiones() {
 }
 // Fiesta en pantalla cuando un adulto verifica una tarea, se sube de nivel o se entrega un premio
 function celebrar(titulo, grande, texto = "") {
-  if ($("#bloqueo-reto")) return notificar(`${titulo} ${grande}`);
+  if ($("#bloqueo-reto:not([hidden])")) return notificar(`${titulo} ${grande}`);
   document.querySelector(".celebracion")?.remove();
   const d = document.createElement("div");
   d.className = "celebracion";
