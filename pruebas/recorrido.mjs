@@ -12,12 +12,19 @@ const resultados = [];
 const erroresPagina = [];
 let n = 0;
 const nota = (ok, texto) => { resultados.push(`${ok ? "✅" : "❌"} ${texto}`); console.log(ok ? "OK " : "FALLO ", texto); };
+const paginas = [];
 async function paso(texto, fn) {
-  try { await fn(); nota(true, texto); } catch (e) { nota(false, `${texto} — ${String(e.message).split("\n")[0]}`); }
+  try { await fn(); nota(true, texto); } catch (e) {
+    const lineas = String(e.message).split("\n").map((l) => l.trim()).filter(Boolean);
+    const donde = lineas.find((l) => /waiting for|intercepts|outside of the viewport|not visible|not stable/.test(l)) || "";
+    nota(false, `${texto} — ${lineas[0]}${donde ? " · " + donde.slice(0, 200) : ""}`);
+    for (const [p, quien] of paginas) await captura(p, `FALLO-${quien}`).catch(() => {});
+  }
 }
 const captura = (page, nombre) => page.screenshot({ path: `${DIR}/capturas/${String(++n).padStart(2, "0")}-${nombre}.png` });
 
 function vigilar(page, quien) {
+  paginas.push([page, quien.replace(/\W+/g, "-")]);
   page.on("pageerror", (e) => erroresPagina.push(`[${quien}] ${e.message}`));
   page.on("console", (m) => { if (m.type() === "error") erroresPagina.push(`[${quien}] consola: ${m.text().slice(0, 300)}`); });
 }

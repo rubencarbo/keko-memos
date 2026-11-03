@@ -156,7 +156,7 @@ test("los avisos se firman con el propio usuario", async () => {
 });
 
 test("cualquier miembro registra tareas de casa", async () => {
-  await assertSucceeds(setDoc(doc(collection(como("leo"), "hogares", H, "tareas")), { tarea: "poner_mesa", uid: "leo", por: "leo", fecha: "2026-10-20" }));
+  await assertSucceeds(setDoc(doc(collection(como("leo"), "hogares", H, "tareas")), { tarea: "poner_mesa", uid: "leo", por: "leo", fecha: "2026-10-20", estado: "pendiente" }));
 });
 
 test("un adulto puede borrar un perfil duplicado, pero nadie al administrador", async () => {
