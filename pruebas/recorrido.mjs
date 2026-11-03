@@ -470,7 +470,7 @@ if (!EN_VIVO) {
   await paso("La tablet recibe el aviso que envía el móvil", async () => {
     await m.locator("#nav").getByRole("button", { name: "Hoy" }).click();
     await m.getByRole("button", { name: "¿Cuánto falta?" }).click();
-    await t.locator(".aviso", { hasText: "Hugo" }).waitFor({ timeout: 10000 });
+    await t.locator(".aviso", { hasText: "Hugo" }).last().waitFor({ timeout: 10000 });
     await captura(t, "tablet-aviso-recibido");
   });
 
