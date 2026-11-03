@@ -795,8 +795,8 @@ fieldset.tipos legend { padding: 0; margin-bottom: 6px; }
 .estado-tarea.resta { background: #FDE8E6; color: #A3231B; }
 .lista.verificar li { flex-wrap: wrap; }
 .lista.verificar .btn { min-height: 42px; }
-.elegible { display: flex; flex-direction: column; align-items: center; gap: 6px; font-weight: 700; padding: 8px; border-radius: var(--radio); cursor: pointer; }
-.elegible input { position: absolute; opacity: 0; }
+.elegible { display: flex; flex-direction: column; align-items: center; gap: 6px; font-weight: 700; padding: 8px; border-radius: var(--radio); cursor: pointer; position: relative; }
+.elegible input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .elegible:has(input:checked) .avatar { outline: 4px solid var(--acento); outline-offset: 3px; }
 .chip:has(input:checked) { background: var(--primario); color: var(--sobre-primario); border-color: var(--primario); }
 
