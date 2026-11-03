@@ -52,14 +52,39 @@ test("unirse con un código falso falla", async () => {
   await assertFails(setDoc(doc(como("nuevo"), "hogares", H, "miembros", "nuevo"), { nombre: "X", rol: "adulto", codigo: "ZZZZZZ" }));
 });
 
-test("crear un hogar nuevo con su código funciona", async () => {
+test("crear una familia nueva necesita una invitación de Rubén (y solo sirve una vez)", async () => {
+  const sinInv = como("eva");
+  const b0 = writeBatch(sinInv);
+  b0.set(doc(sinInv, "hogares", "h0"), { nombre: "Sin invitación", codigo: "SIN000", admin: "eva", cocineraHabitual: "eva" });
+  await assertFails(b0.commit());
+
+  const ruben = env.authenticatedContext("ruben", { email: "rubencarbo@gmail.com", email_verified: true }).firestore();
+  await assertSucceeds(setDoc(doc(ruben, "invitaciones", "inv1"), { creadaPor: "ruben", creadaMs: 1, nota: "Familia Eva", usada: false }));
+  await assertFails(setDoc(doc(como("eva"), "invitaciones", "inv2"), { creadaPor: "eva", usada: false }));
+
   const db = como("eva");
   const b = writeBatch(db);
-  b.set(doc(db, "hogares", "h2"), { nombre: "Otra", codigo: "QWE789", admin: "eva", cocineraHabitual: "eva" });
+  b.set(doc(db, "hogares", "h2"), { nombre: "Otra", codigo: "QWE789", admin: "eva", cocineraHabitual: "eva", invitacion: "inv1" });
+  b.update(doc(db, "invitaciones", "inv1"), { usada: true, hogarId: "h2", familia: "Otra", usadaPor: "eva", usadaEmail: "", usadaMs: 2 });
   b.set(doc(db, "codigos", "QWE789"), { hogarId: "h2" });
   b.set(doc(db, "hogares", "h2", "miembros", "eva"), { nombre: "Eva", rol: "adulto", codigo: "QWE789" });
   b.set(doc(db, "usuarios", "eva"), { hogarId: "h2" });
   await assertSucceeds(b.commit());
+
+  // la misma invitación no vale otra vez
+  const otro = como("leo3");
+  const b2 = writeBatch(otro);
+  b2.set(doc(otro, "hogares", "h3"), { nombre: "Copia", codigo: "ZXC456", admin: "leo3", cocineraHabitual: "leo3", invitacion: "inv1" });
+  b2.update(doc(otro, "invitaciones", "inv1"), { hogarId: "h3", usadaPor: "leo3" });
+  await assertFails(b2.commit());
+});
+
+test("los menores no pueden verificar sus tareas; los adultos sí", async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), "hogares", H, "tareas", "t1"), { tarea: "poner_mesa", uid: "leo", por: "leo", estado: "pendiente", puntos: 10 });
+  });
+  await assertFails(updateDoc(doc(como("leo"), "hogares", H, "tareas", "t1"), { estado: "ok" }));
+  await assertSucceeds(updateDoc(doc(como("ana"), "hogares", H, "tareas", "t1"), { estado: "ok" }));
 });
 
 test("no se puede secuestrar un código de otro hogar", async () => {

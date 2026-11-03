@@ -2,7 +2,7 @@
 // Menú Familiar · funciones/index.js
 // Único código en servidor: envía los avisos como notificaciones push
 // =========================================================
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { setGlobalOptions } = require("firebase-functions/v2/options");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -346,4 +346,22 @@ exports.unirse = onCall({ enforceAppCheck: !EMULADOR, timeoutSeconds: 30 }, asyn
     return { ok: true };
   }
   throw new HttpsError("invalid-argument", "Acción desconocida");
+});
+
+// =========================================================
+// Aviso a Rubén cuando alguien crea una familia con su invitación
+// (crea un aviso en su hogar; «enviarAviso» lo manda como notificación a su móvil)
+// =========================================================
+exports.familiaCreada = onDocumentUpdated("invitaciones/{inv}", async (event) => {
+  const antes = event.data?.before?.data(), despues = event.data?.after?.data();
+  if (!antes || !despues || antes.usada || !despues.usada) return;
+  const destino = despues.creadaPor;
+  const u = await db.doc(`usuarios/${destino}`).get();
+  const hogarRuben = u.data()?.hogarId;
+  if (!hogarRuben) return;
+  await db.collection(`hogares/${hogarRuben}/avisos`).add({
+    texto: `🎉 Nueva familia en KeKoMeMos: «${despues.familia || "sin nombre"}»${despues.usadaEmail ? ` (${despues.usadaEmail})` : ""}${despues.nota ? ` · invitación «${despues.nota}»` : ""}`,
+    tipo: "texto", para: destino, de: "kekomemos", quien: "kekomemos", deNombre: "KeKoMeMos",
+    creadoMs: Date.now(), ts: FieldValue.serverTimestamp()
+  });
 });

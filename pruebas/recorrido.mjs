@@ -29,16 +29,45 @@ async function verManana(p) {
 }
 
 // Responde hasta acertar (cada fallo genera un reto nuevo) y espera a que se revele el menú
-async function resolverReto(p, nombre, foto) {
-  await p.locator(".reto-opciones").waitFor({ timeout: 30000 });
+// Resuelve el reto abierto: primero falla a propósito una vez (para ver la bomba) y luego acierta
+async function resolverReto(p, nombre, foto, fotoBomba) {
+  await p.locator(".modal-reto .reto-pregunta").waitFor({ timeout: 30000 });
   if (foto) await captura(p, foto);
-  for (let i = 0; i < 40; i++) {
-    if (await p.getByText(`¡Bien, ${nombre}!`).count()) return;
-    const op = p.locator(".reto-opciones button:not([disabled])").first();
-    if (await op.count()) await op.click().catch(() => {});
-    await p.waitForTimeout(1400);
+  const reto = await p.evaluate(() => window.__S.retoInline?.reto);
+  const tipo = reto.tipo || "opciones";
+  const esperar = async () => { await p.locator(".bomba").waitFor({ state: "detached", timeout: 15000 }).catch(() => {}); };
+  // un fallo a propósito
+  if (tipo === "opciones") {
+    const mala = reto.opciones.findIndex((o) => o !== reto.correcta);
+    await p.locator(`.modal-reto [data-accion="responder-reto"][data-i="${mala}"]`).click();
+  } else if (tipo === "parejas") {
+    const a = reto.pares[0].a, malo = reto.pares[1].b;
+    await p.locator(`.modal-reto [data-lado="a"][data-v="${a}"]`).click();
+    await p.locator(`.modal-reto [data-lado="b"][data-v="${malo}"]`).click();
+  } else {
+    const mal = reto.mezclados.findIndex((v) => v !== reto.elementos[0]);
+    await p.locator(`.modal-reto [data-accion="orden"][data-i="${mal}"]`).click();
   }
-  await p.getByText(`¡Bien, ${nombre}!`).waitFor({ timeout: 5000 });
+  await p.locator(".bomba").waitFor({ timeout: 5000 });
+  if (fotoBomba) await captura(p, fotoBomba);
+  await esperar();
+  // ahora bien
+  if (tipo === "opciones") {
+    await p.locator(`.modal-reto [data-accion="responder-reto"][data-i="${reto.opciones.indexOf(reto.correcta)}"]`).click();
+  } else if (tipo === "parejas") {
+    for (const { a, b } of reto.pares) {
+      await p.locator(`.modal-reto [data-lado="a"][data-v="${a}"]`).click();
+      await p.locator(`.modal-reto [data-lado="b"][data-v="${b}"]`).click();
+    }
+  } else {
+    const usados = new Set();
+    for (const el of reto.elementos) {
+      const i = reto.mezclados.findIndex((v, k) => v === el && !usados.has(k));
+      usados.add(i);
+      await p.locator(`.modal-reto [data-accion="orden"][data-i="${i}"]`).click();
+    }
+  }
+  await p.getByText(`¡Bien, ${nombre}!`).waitFor({ timeout: 8000 });
 }
 
 // Unirse con el código: elegir «nuevo» o un perfil existente
@@ -50,13 +79,13 @@ async function unirse(p, { nombre, nacimiento, existente = false }, foto) {
   if (foto) await captura(p, foto);
   if (existente) {
     await p.locator(".selector-cocinero").getByRole("button", { name: nombre }).click();
-    await p.locator('form[data-form="union-soy"] input[name="nacimiento"]').fill(nacimiento);
+    await p.locator('form[data-form="union-soy"] input[name="nacimientoTexto"]').fill(nacimiento.split("-").reverse().join("/"));
     await p.getByRole("button", { name: "Entrar" }).click();
   } else {
     await p.getByRole("button", { name: "Soy nuevo/a en la familia" }).click();
     const f = p.locator('form[data-form="union-nuevo"]');
     await f.locator('input[name="nombre"]').fill(nombre);
-    await f.locator('input[name="nacimiento"]').fill(nacimiento);
+    await f.locator('input[name="nacimientoTexto"]').fill(nacimiento.split("-").reverse().join("/"));
     await f.getByRole("button", { name: "Unirme" }).click();
   }
 }
@@ -125,7 +154,7 @@ if (!EN_VIVO) {
     await resolverReto(t, "Pablo", "tablet-reto-peque");
     await captura(t, "tablet-menu-revelado");
     await t.getByRole("button", { name: "¡A la mesa!" }).click();
-    await t.getByText("45 pts").waitFor({ timeout: 10000 });
+    await t.getByText("42 pts").waitFor({ timeout: 10000 });
   });
 
   await paso("Recetas: el asistente «Añadir receta» ofrece internet, IA y a mano", async () => {
@@ -261,13 +290,33 @@ if (!EN_VIVO) {
     await t.locator(".codigo-hogar", { hasText: "PRUEBA" }).waitFor();
     await t.locator(".qr svg").waitFor({ timeout: 10000 });
     await captura(t, "tablet-perfil");
-    for (const [id, nombre] of [["azulejo", "Azulejo"], ["nordico", "Nórdico"], ["diner", "Diner retro"], ["cielo", "Cielo"], ["pizarra", "Pizarra clara"]]) {
+    for (const [id, nombre] of [["azulejo", "Azulejo"], ["nordico", "Nórdico"], ["diner", "Diner retro"], ["cielo", "Zellige"], ["pizarra", "Pizarra clara"]]) {
       await t.getByRole("button", { name: nombre }).click();
       await t.locator("#nav").getByRole("button", { name: "Hoy" }).click();
       await t.getByText("Fideos a la cazuela").first().waitFor();
       await captura(t, `tema-${id}`);
       await t.locator("#nav").getByRole("button", { name: "Yo" }).click();
     }
+  });
+
+  await paso("Rubén cambia el nombre de un miembro", async () => {
+    await t.locator("#nav").getByRole("button", { name: "Yo" }).click();
+    await t.getByRole("button", { name: "Cambiar el nombre de Irene" }).click();
+    await t.locator('#modal input[name="nombre"]').fill("Irenita");
+    await t.locator("#modal").getByRole("button", { name: "Guardar" }).click();
+    await t.getByText("Irenita").first().waitFor();
+  });
+
+  await paso("Recetas: exportar a JSON e importar sin duplicar", async () => {
+    await t.locator("#nav").getByRole("button", { name: "Recetas" }).click();
+    await t.getByRole("button", { name: /Copia/ }).click();
+    const [descarga] = await Promise.all([t.waitForEvent("download"), t.getByRole("button", { name: /Exportar las/ }).click()]);
+    const ruta = await descarga.path();
+    const json = JSON.parse((await import("node:fs")).readFileSync(ruta, "utf8"));
+    if (!json.recetas?.length) throw new Error("la copia está vacía");
+    await t.locator('input[data-input="importar-recetas"]').setInputFiles(ruta);
+    await t.getByText(/No hay recetas nuevas que importar/).waitFor();
+    await t.getByRole("button", { name: "Cerrar" }).click().catch(() => {});
   });
 
   await paso("Rubén: panel «Reiniciar» (prueba con los avisos)", async () => {
@@ -298,7 +347,7 @@ if (!EN_VIVO) {
     if (await m.locator(".plato").count()) throw new Error("el menor ve el plato antes de acertar");
     await captura(m, "movil-menor-kekomemos");
     await m.locator(".boton-fisico").click();
-    await m.locator(".modal-reto .reto-opciones").waitFor({ timeout: 30000 });
+    await m.locator(".modal-reto .reto-pregunta").waitFor({ timeout: 30000 });
     await m.waitForTimeout(800);
     await captura(m, "movil-menor-reto");
     // no se puede saltar: al salir y volver a entrar, el mismo reto vuelve a aparecer
@@ -310,14 +359,7 @@ if (!EN_VIVO) {
     await m.keyboard.press("Escape");
     await m.mouse.click(5, 5);
     if (!(await m.locator(".modal-reto").count())) throw new Error("el reto se ha podido cerrar sin acertar");
-    let bomba = false;
-    for (let i = 0; i < 30; i++) {
-      if (await m.getByText("¡Bien, Hugo!").count()) break;
-      if (!bomba && await m.locator(".bomba").count()) { bomba = true; await captura(m, "movil-menor-bomba"); }
-      const op = m.locator(".modal-reto .reto-opciones button:not([disabled])").first();
-      if (await op.count()) await op.click().catch(() => {});
-      await m.waitForTimeout(1000);
-    }
+    await resolverReto(m, "Hugo", null, "movil-menor-bomba");
     await m.getByText("¡Bien, Hugo!").waitFor({ timeout: 5000 });
     await m.waitForTimeout(800);
     await captura(m, "movil-menor-regalo");
@@ -335,6 +377,27 @@ if (!EN_VIVO) {
     await m.locator(".lista li", { hasText: "yogures" }).waitFor();
     if (await m.getByRole("button", { name: /^Quitar/ }).count()) throw new Error("el menor ve botones de borrar");
     await captura(m, "movil-menor-compra");
+  });
+
+  await paso("Un menor marca una tarea y queda pendiente hasta que Rubén la verifica", async () => {
+    await m.locator("#nav").getByRole("button", { name: "Hoy" }).click();
+    await m.getByRole("button", { name: /^Quitar la mesa/ }).click();
+    await m.locator(".selector-cocinero").getByRole("button", { name: "Hugo" }).click();
+    await m.getByText(/se suman cuando lo verifique/).waitFor();
+    await m.getByText("por verificar").waitFor();
+    await t.getByText("Tareas por verificar").waitFor({ timeout: 15000 });
+    await captura(t, "tablet-verificar");
+    await t.locator("#modal").getByRole("button", { name: "Confirmar" }).first().click();
+    await t.locator("#modal").waitFor({ state: "hidden", timeout: 5000 }).catch(() => {});
+  });
+
+  await paso("Rubén resta puntos a un menor", async () => {
+    await t.locator("#nav").getByRole("button", { name: "Hoy" }).click();
+    await t.getByRole("button", { name: /Restar puntos/ }).click();
+    await t.locator("#modal label.elegible", { hasText: "Pablo" }).click();
+    await captura(t, "tablet-restar");
+    await t.locator("#modal").getByRole("button", { name: "Restar puntos" }).click();
+    await t.getByText(/−5 puntos para Pablo/).waitFor();
   });
 
   await paso("La tablet recibe el aviso que envía el móvil", async () => {

@@ -4,6 +4,21 @@ service cloud.firestore {
 
     function conSesion() { return request.auth != null; }
     function yoUid() { return request.auth.uid; }
+    // Rubén: el único que puede invitar a familias nuevas
+    function esSuper() { return conSesion() && request.auth.token.email == 'rubencarbo@gmail.com' && request.auth.token.email_verified == true; }
+
+    // Invitaciones para crear familias nuevas
+    match /invitaciones/{inv} {
+      allow get: if conSesion();
+      allow list: if esSuper();
+      allow create, delete: if esSuper();
+      // usar la invitación: solo una vez, a la vez que se crea la familia de quien la usa
+      allow update: if conSesion() && resource.data.usada == false && request.resource.data.usada == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usada', 'hogarId', 'familia', 'usadaPor', 'usadaEmail', 'usadaMs'])
+        && request.resource.data.usadaPor == yoUid()
+        && getAfter(/databases/$(database)/documents/hogares/$(request.resource.data.hogarId)).data.admin == yoUid()
+        && getAfter(/databases/$(database)/documents/hogares/$(request.resource.data.hogarId)).data.invitacion == inv;
+    }
 
     // Índice usuario → hogar
     match /usuarios/{uid} {
@@ -25,7 +40,12 @@ service cloud.firestore {
       function esAdmin() { return conSesion() && get(/databases/$(database)/documents/hogares/$(hogar)).data.admin == yoUid(); }
 
       allow read: if esMiembro();
-      allow create: if conSesion() && request.resource.data.admin == yoUid();
+      // Crear una familia: Rubén, o quien tenga una invitación sin usar (que se marca como usada en el mismo paso)
+      allow create: if conSesion() && request.resource.data.admin == yoUid()
+        && (esSuper()
+            || (request.resource.data.invitacion is string
+                && get(/databases/$(database)/documents/invitaciones/$(request.resource.data.invitacion)).data.usada == false
+                && getAfter(/databases/$(database)/documents/invitaciones/$(request.resource.data.invitacion)).data.hogarId == hogar));
       // El titular de la cuenta del hogar solo puede pasar a otro adulto del hogar (al fusionar duplicados)
       allow update: if esAdulto()
         && request.resource.data.codigo == resource.data.codigo
@@ -67,6 +87,8 @@ service cloud.firestore {
       match /tareas/{id} {
         allow read: if esMiembro();
         allow create: if esMiembro() && request.resource.data.por == yoUid();
+        // verificar (o rechazar) una tarea: solo adultos
+        allow update: if esAdulto();
         allow delete: if esAdulto();
       }
     }

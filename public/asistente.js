@@ -182,86 +182,124 @@ Devuelve JSON: {"faltan":[{"nombre":"huevo","cantidad":12,"unidad":"ud"}]} con n
 }
 
 // Acertijo de lógica o ingenio creado por Gemini; si falla, reto matemático local
-// ---------- Banco de retos «premium» (revisados a mano: respuesta única y explicación) ----------
-// Inspirados en: pensamiento lateral (Paul Sloane), lógica de Raymond Smullyan y Lewis Carroll,
-// los puzles del Profesor Layton, test tipo Mensa, adivinanzas populares españolas y emojis de cocina.
-const R = (id, categoria, pregunta, correcta, malas, pista, explicacion) => ({ id, categoria, pregunta, correcta, opciones: [correcta, ...malas], pista, explicacion });
+// ---------- Banco de retos (revisados a mano: divertidos, rápidos y con una sola respuesta) ----------
+// Tipos: "opciones" (elige la buena), "parejas" (une cada cosa con su pareja) y "orden" (toca en el orden correcto)
+const O = (id, categoria, pregunta, correcta, malas, pista, explicacion) => ({ tipo: "opciones", id, categoria, pregunta, correcta, opciones: [correcta, ...malas], pista, explicacion });
+const P = (id, pregunta, pares, explicacion = "") => ({ tipo: "parejas", id, categoria: "Parejas", pregunta, pares: pares.map(([a, b]) => ({ a, b })), pista: "Empieza por la que tengas más clara.", explicacion });
+const OR = (id, categoria, pregunta, elementos, pista, explicacion = "") => ({ tipo: "orden", id, categoria, pregunta, elementos, pista, explicacion });
+
 export const BANCO_RETOS = [
-  R("monopoly", "Pensamiento lateral", "Un hombre empuja su coche hasta un hotel y en ese momento sabe que está arruinado. ¿Qué está pasando?", "Está jugando al Monopoly", ["Se le ha averiado el coche", "Le han robado la cartera", "El hotel está cerrado"], "No hace falta salir de casa para que ocurra.", "En el Monopoly, si caes en una casilla con hotel tienes que pagar… y a veces te arruinas."),
-  R("foto", "Pensamiento lateral", "Una mujer dispara a su marido, lo mete bajo el agua cinco minutos y luego lo cuelga. Media hora después cenan juntos tan felices. ¿Cómo es posible?", "Le hizo una foto y la reveló", ["Era una pistola de agua", "Todo era un sueño", "Estaban rodando una película"], "Piensa en cámaras antiguas.", "Disparar una foto, revelarla en agua y colgarla a secar: así se hacían las fotos antes."),
-  R("silencio", "Adivinanza", "¿Qué se rompe con solo nombrarlo?", "El silencio", ["Un secreto", "Un cristal", "Una promesa"], "Ahora mismo lo estás oyendo… o no.", "En cuanto dices «silencio», ya no hay silencio."),
-  R("tren", "Pregunta trampa", "Un tren eléctrico viaja hacia el norte y el viento sopla hacia el sur. ¿Hacia dónde va el humo?", "No echa humo", ["Hacia el sur", "Hacia el norte", "Hacia arriba"], "Fíjate bien en qué tipo de tren es.", "Los trenes eléctricos no echan humo."),
-  R("maria", "Pregunta trampa", "El padre de María tiene cinco hijas: Nana, Nene, Nini y Nono. ¿Cómo se llama la quinta?", "María", ["Nunu", "Nina", "Nena"], "Vuelve a leer el principio.", "Es el padre de María, así que la quinta hija es… María."),
-  R("ovejas", "Pregunta trampa", "Un granjero tiene 17 ovejas. Se le mueren todas menos 9. ¿Cuántas le quedan?", "9", ["8", "17", "0"], "«Todas menos…»", "Si mueren todas menos 9, quedan exactamente 9."),
-  R("meses", "Pregunta trampa", "¿Cuántos meses del año tienen 28 días?", "Los 12", ["Solo febrero", "Dos", "Ninguno"], "No pregunta cuántos tienen SOLO 28.", "Todos los meses tienen, como mínimo, 28 días."),
-  R("croquetas", "Lógica", "Si 5 máquinas tardan 5 minutos en hacer 5 croquetas, ¿cuánto tardan 100 máquinas en hacer 100 croquetas?", "5 minutos", ["100 minutos", "20 minutos", "1 minuto"], "¿Cuánto tarda UNA máquina en hacer UNA croqueta?", "Cada máquina hace una croqueta en 5 minutos, así que 100 máquinas hacen 100 croquetas en 5 minutos."),
-  R("calcetines", "Lógica", "A oscuras, en un cajón con calcetines negros y blancos mezclados, ¿cuántos tienes que sacar como mínimo para tener seguro un par del mismo color?", "3", ["2", "4", "5"], "Solo hay dos colores.", "Con 3 calcetines y solo 2 colores, al menos dos coinciden seguro."),
-  R("bolas", "Lógica (Layton)", "Tienes 8 bolas iguales, pero una pesa un poco más. Con una balanza de dos platos, ¿cuántas pesadas necesitas como mínimo para encontrarla seguro?", "2", ["3", "1", "4"], "Prueba a dividir en grupos de 3.", "Pesas 3 contra 3: si equilibran, está entre las 2 restantes; si no, entre las 3 del lado pesado. Una segunda pesada basta."),
-  R("tarta", "Lógica (Layton)", "Con solo 3 cortes rectos de cuchillo, ¿cuántos trozos como máximo puedes sacar de una tarta?", "8", ["6", "7", "9"], "Nadie dijo que todos los cortes fueran desde arriba.", "Dos cortes en cruz dan 4 trozos y un tercer corte horizontal, por la mitad de la altura, los convierte en 8."),
-  R("reloj", "Lógica (Mensa)", "A las 3:15, ¿qué ángulo forman las agujas del reloj?", "7,5 grados", ["0 grados", "15 grados", "90 grados"], "La aguja de las horas también se mueve.", "En 15 minutos la aguja corta avanza un cuarto de hora: 30° ÷ 4 = 7,5°."),
-  R("ayer", "Lógica (Lewis Carroll)", "Si ayer fuera mañana, hoy sería viernes. ¿Qué día es hoy?", "Domingo", ["Miércoles", "Sábado", "Jueves"], "Cuenta los días hacia atrás desde ese viernes.", "Si ayer (sábado) fuera mañana, «hoy» sería el día anterior a ese sábado: viernes. Así que hoy es domingo."),
-  R("alturas", "Lógica", "Juan es más alto que Luis. Pedro es más bajo que Luis. ¿Quién es el más alto?", "Juan", ["Luis", "Pedro", "No se puede saber"], "Ordénalos de mayor a menor.", "Juan > Luis > Pedro."),
-  R("isla", "Lógica (Smullyan)", "En una isla, los caballeros siempre dicen la verdad y los escuderos siempre mienten. Ana dice: «Bea y yo somos escuderos». ¿Qué es cada una?", "Ana escudero, Bea caballero", ["Las dos escuderos", "Las dos caballeros", "Ana caballero, Bea escudero"], "¿Podría un caballero decir esa frase?", "Un caballero nunca diría que es escudero, así que Ana miente. Como miente, no son las dos escuderos: Bea es caballero."),
-  R("edades", "Lógica", "Hoy tengo el triple de años que mi hermano. Dentro de 10 años tendré el doble. ¿Cuántos años tengo?", "30", ["20", "15", "24"], "Prueba con tu hermano a los 10.", "Hermano 10 y yo 30. En 10 años: 20 y 40, el doble."),
-  R("letras", "Secuencia (Mensa)", "¿Qué letra sigue? U, D, T, C, C, S, S, …", "O", ["N", "D", "S"], "Cuenta en voz alta.", "Son las iniciales de uno, dos, tres, cuatro, cinco, seis, siete… ¡ocho!"),
-  R("fibonacci", "Secuencia (Mensa)", "¿Qué número sigue? 1, 1, 2, 3, 5, 8, 13, …", "21", ["18", "20", "26"], "Mira los dos anteriores.", "Cada número es la suma de los dos anteriores: 8 + 13 = 21 (sucesión de Fibonacci)."),
-  R("pronicos", "Secuencia (Mensa)", "¿Qué número sigue? 2, 6, 12, 20, 30, …", "42", ["40", "36", "44"], "Mira cuánto aumenta cada vez.", "Suma 4, 6, 8, 10… y luego 12: 30 + 12 = 42."),
-  R("pera", "Adivinanza popular", "Blanca por dentro, verde por fuera. Si quieres que te lo diga, espera.", "La pera", ["El melón", "El kiwi", "La sandía"], "Lee despacio la última frase.", "«Espera» suena a «es pera»."),
-  R("platano", "Adivinanza popular", "Oro parece, plata no es. Quien no lo adivine, bien tonto es.", "El plátano", ["El limón", "La naranja", "El oro"], "Junta dos palabras de la adivinanza.", "«Plata no es» → plá-ta-no."),
-  R("ajo", "Adivinanza popular", "Tiene dientes y no come, tiene cabeza y no es hombre.", "El ajo", ["El peine", "El tenedor", "La cebolla"], "Está en muchas recetas de casa.", "Una cabeza de ajos tiene dientes de ajo."),
-  R("reloj-agujas", "Adivinanza", "Tengo agujas pero no pincho, tengo números pero no sumo. ¿Qué soy?", "Un reloj", ["Un pino", "Un erizo", "Una calculadora"], "Lo miras para no llegar tarde a comer.", "Las agujas del reloj marcan los números de las horas."),
-  R("emoji-tortilla", "Emoji-plato", "🥔 + 🥚 + 🧅 + 🍳 = ?", "Tortilla de patatas", ["Huevos rotos", "Patatas bravas", "Ensaladilla rusa"], "Lleva cebolla… o no, según a quién preguntes.", "Patata, huevo y cebolla en la sartén: tortilla de patatas."),
-  R("emoji-paella", "Emoji-plato", "🍚 + 🦐 + 🍋 + 🥘 = ?", "Paella", ["Risotto", "Arroz con leche", "Sushi"], "Se hace en un recipiente que se llama igual que el plato.", "Arroz, gambas y limón en paellera: paella."),
-  R("emoji-gazpacho", "Emoji-plato", "🍅 + 🥒 + 🫑 + 🧄 + 🧊 = ?", "Gazpacho", ["Pisto", "Salmorejo", "Ensalada"], "Se toma frío y en verano.", "Tomate, pepino, pimiento y ajo, bien frío: gazpacho."),
-  R("emoji-carbonara", "Emoji-plato", "🍝 + 🥓 + 🥚 + 🧀 = ?", "Espaguetis a la carbonara", ["Lasaña", "Macarrones con tomate", "Pizza"], "Viene de Roma.", "Pasta, panceta, huevo y queso: carbonara."),
-  R("emoji-arroz", "Emoji-plato", "🥛 + 🍚 + 🍋 + canela = ?", "Arroz con leche", ["Natillas", "Flan", "Torrijas"], "Es de postre.", "Leche, arroz, piel de limón y canela: arroz con leche."),
-  R("baya", "¿Verdad o bulo?", "Para un botánico, ¿cuál de estas frutas es una baya?", "El plátano", ["La fresa", "La frambuesa", "La cereza"], "Sorprendentemente, la que menos lo parece.", "El plátano es una baya; la fresa y la frambuesa no lo son, y la cereza es una drupa."),
-  R("tomate", "¿Verdad o bulo?", "¿De dónde es originario el tomate?", "De América", ["De Italia", "De España", "De la India"], "Llegó a Europa en barco hace unos 500 años.", "El tomate viene de América (México y Perú) y llegó a Europa en el siglo XVI."),
-  R("aceite", "¿Verdad o bulo?", "¿Qué pesa más: un litro de aceite o un litro de agua?", "El litro de agua", ["El litro de aceite", "Pesan igual", "Depende de la temperatura"], "Piensa en qué flota sobre qué.", "El aceite es menos denso que el agua, por eso flota y un litro pesa menos (unos 920 g)."),
-  R("huevo", "Pregunta trampa", "¿Cuántos huevos puedes comerte con el estómago vacío?", "Uno", ["Ninguno", "Tres", "Los que quieras"], "Después del primero…", "Después del primero ya no tienes el estómago vacío.")
+  // Adivinanzas y preguntas con chispa
+  O("peine", "Adivinanza", "Tengo dientes pero nunca muerdo. ¿Qué soy?", "Un peine", ["Un tiburón", "Un cocodrilo", "Tu hermano"], "Lo usas por la mañana… en el pelo.", "El peine tiene muchos dientes y no muerde a nadie."),
+  O("toalla", "Adivinanza", "¿Qué se moja mientras seca?", "Una toalla", ["Un paraguas", "El sol", "Una esponja"], "Está en el baño.", "La toalla te seca a ti… y se moja ella."),
+  O("agujero", "Adivinanza", "¿Qué cosa, cuanto más le quitas, más grande se hace?", "Un agujero", ["Una tarta", "Un globo", "Una pizza"], "Piensa en una pala y la arena.", "Cuanta más tierra sacas, más grande es el agujero."),
+  O("escalera", "Adivinanza", "¿Qué sube y baja, pero nunca se mueve?", "Una escalera", ["Un ascensor", "Un yoyó", "Una pelota"], "Está en casi todos los edificios.", "La escalera sube y baja… quieta en su sitio."),
+  O("letra-m", "Adivinanza", "Aparezco una vez en un minuto, dos veces en un momento y nunca en cien años. ¿Qué soy?", "La letra M", ["Un segundo", "Un reloj", "Una estrella fugaz"], "Fíjate en cómo se escriben las palabras.", "«Minuto» tiene una M, «momento» dos y «cien años» ninguna."),
+  O("nombre", "Adivinanza", "Es tuyo, pero los demás lo usan mucho más que tú. ¿Qué es?", "Tu nombre", ["Tu móvil", "Tu cama", "Tu mochila"], "Te llaman con él.", "Los demás dicen tu nombre mucho más que tú."),
+  O("peras", "Adivinanza popular", "Blanca por dentro, verde por fuera. Si quieres que te lo diga, espera.", "La pera", ["El melón", "El kiwi", "La sandía"], "Lee despacio la última frase.", "«Espera» suena a «es pera»."),
+  O("platano", "Adivinanza popular", "Oro parece, plata no es. Quien no lo adivine, bien tonto es.", "El plátano", ["El limón", "La naranja", "El oro"], "Junta dos palabras de la adivinanza.", "«Plata no es» → plá-ta-no."),
+  O("ajo", "Adivinanza popular", "Tiene dientes y no come, tiene cabeza y no es hombre.", "El ajo", ["El peine", "El tenedor", "La cebolla"], "Está en muchas recetas de casa.", "Una cabeza de ajos tiene dientes de ajo."),
+  // Preguntas trampa
+  O("gallo", "Pregunta trampa", "Un gallo pone un huevo en lo alto de un tejado. ¿Hacia qué lado cae?", "Los gallos no ponen huevos", ["Hacia la izquierda", "Hacia la derecha", "Se queda arriba"], "¿Quién pone los huevos en un corral?", "Los huevos los ponen las gallinas, no los gallos."),
+  O("kilo", "Pregunta trampa", "¿Qué pesa más: un kilo de patatas o un kilo de plumas?", "Pesan lo mismo", ["Las patatas", "Las plumas", "Depende del viento"], "Mira bien las palabras.", "Un kilo es un kilo, sea de lo que sea."),
+  O("huevo", "Pregunta trampa", "¿Cuántos huevos puedes comerte con el estómago vacío?", "Uno", ["Ninguno", "Tres", "Los que quieras"], "Después del primero…", "Después del primero ya no tienes el estómago vacío."),
+  O("maria", "Pregunta trampa", "El padre de María tiene cinco hijas: Nana, Nene, Nini y Nono. ¿Cómo se llama la quinta?", "María", ["Nunu", "Nina", "Nena"], "Vuelve a leer el principio.", "Es el padre de María, así que la quinta es María."),
+  O("meses", "Pregunta trampa", "¿Cuántos meses del año tienen 28 días?", "Los 12", ["Solo febrero", "Dos", "Ninguno"], "No dice «solo 28».", "Todos los meses tienen, como mínimo, 28 días."),
+  O("ovejas", "Pregunta trampa", "Un granjero tiene 17 ovejas. Se le escapan todas menos 9. ¿Cuántas le quedan?", "9", ["8", "17", "0"], "«Todas menos…»", "Si se escapan todas menos 9, le quedan 9."),
+  O("escalon", "Pensamiento lateral", "Un hombre se cae de una escalera de 10 metros y no se hace ni un rasguño. ¿Cómo?", "Se cayó del primer escalón", ["Llevaba casco", "Cayó en una piscina", "Es un superhéroe"], "¿Desde qué altura se cayó?", "La escalera medía 10 metros… pero él estaba en el primer escalón."),
+  O("croquetas", "Lógica", "Si 5 cocineros hacen 5 tortillas en 5 minutos, ¿cuánto tardan 10 cocineros en hacer 10 tortillas?", "5 minutos", ["10 minutos", "20 minutos", "1 minuto"], "Cada cocinero hace su tortilla.", "Cada uno tarda 5 minutos en hacer la suya, da igual cuántos sean."),
+  // El intruso
+  O("intruso-legumbres", "El intruso", "¿Cuál es el intruso? Lentejas · Garbanzos · Alubias · Plátano", "Plátano", ["Lentejas", "Garbanzos", "Alubias"], "Tres de ellos van en el cocido…", "Lentejas, garbanzos y alubias son legumbres; el plátano es una fruta."),
+  O("intruso-frutas", "El intruso", "¿Cuál es el intruso? Manzana · Pera · Zanahoria · Melocotón", "Zanahoria", ["Manzana", "Pera", "Melocotón"], "Uno crece bajo tierra.", "La zanahoria es una hortaliza; las demás son frutas."),
+  O("intruso-cubiertos", "El intruso", "¿Cuál es el intruso? Tenedor · Cuchara · Cuchillo · Sartén", "Sartén", ["Tenedor", "Cuchara", "Cuchillo"], "Tres se ponen en la mesa.", "Tenedor, cuchara y cuchillo son cubiertos; la sartén es para cocinar."),
+  // Emojis
+  O("emoji-tortilla", "Emoji-plato", "🥔 + 🥚 + 🧅 + 🍳 = ?", "Tortilla de patatas", ["Huevos rotos", "Patatas bravas", "Ensaladilla rusa"], "Redonda y se le da la vuelta con un plato.", "Patata, huevo y cebolla en la sartén: tortilla."),
+  O("emoji-paella", "Emoji-plato", "🍚 + 🦐 + 🍋 + 🥘 = ?", "Paella", ["Risotto", "Arroz con leche", "Sushi"], "Se llama igual que el recipiente.", "Arroz, gambas y limón en paellera: paella."),
+  O("emoji-gazpacho", "Emoji-plato", "🍅 + 🥒 + 🫑 + 🧄 + 🧊 = ?", "Gazpacho", ["Pisto", "Ensalada", "Sopa de cebolla"], "Se toma frío en verano.", "Tomate, pepino, pimiento y ajo bien frío: gazpacho."),
+  O("emoji-carbonara", "Emoji-plato", "🍝 + 🥓 + 🥚 + 🧀 = ?", "Espaguetis a la carbonara", ["Lasaña", "Macarrones con tomate", "Pizza"], "Viene de Roma.", "Pasta, panceta, huevo y queso: carbonara."),
+  O("emoji-hawaiana", "Emoji-plato", "🍕 + 🍍 + 🥓 = ?", "Pizza hawaiana", ["Pizza margarita", "Macedonia", "Piña colada"], "La pizza más polémica del mundo.", "Pizza con piña y jamón: hawaiana."),
+  O("emoji-tacos", "Emoji-plato", "🌮 + 🥑 + 🌶️ = ?", "Comida mexicana", ["Comida japonesa", "Comida italiana", "Comida china"], "¡Ándale!", "Tacos, aguacate y chile: México."),
+  // ¿Verdad o bulo?
+  O("baya", "¿Verdad o bulo?", "¿Cuál de estas frutas es, para un botánico, una baya?", "El plátano", ["La fresa", "La frambuesa", "La cereza"], "La que menos lo parece.", "El plátano es una baya; la fresa y la frambuesa no lo son."),
+  O("tomate", "¿Verdad o bulo?", "¿De dónde viene el tomate?", "De América", ["De Italia", "De España", "De la India"], "Llegó a Europa en barco hace 500 años.", "El tomate viene de América y llegó a Europa en el siglo XVI."),
+  O("aceite", "¿Verdad o bulo?", "¿Qué pesa más: un litro de aceite o un litro de agua?", "El litro de agua", ["El litro de aceite", "Pesan igual", "Depende del día"], "¿Qué flota sobre qué?", "El aceite es más ligero que el agua: por eso flota."),
+  O("letras", "Secuencia", "¿Qué letra sigue? U, D, T, C, C, S, S, …", "O", ["N", "D", "S"], "Cuenta en voz alta.", "Uno, dos, tres, cuatro, cinco, seis, siete… ¡ocho!"),
+  O("triangulares", "Secuencia", "¿Qué número sigue? 1, 3, 6, 10, …", "15", ["12", "14", "16"], "Mira cuánto sube cada vez.", "Suma 2, luego 3, luego 4… y ahora 5: 10 + 5 = 15."),
+
+  // Parejas
+  P("paises", "Une cada plato con su país", [["Pizza", "Italia"], ["Sushi", "Japón"], ["Tacos", "México"], ["Paella", "España"]]),
+  P("animales", "Une cada animal con lo que nos da", [["Vaca", "Leche"], ["Gallina", "Huevos"], ["Abeja", "Miel"], ["Oveja", "Lana"]]),
+  P("utensilios", "Une cada utensilio con para qué sirve", [["Rallador", "Rallar queso"], ["Colador", "Escurrir pasta"], ["Batidora", "Triturar"], ["Sacacorchos", "Abrir botellas"]]),
+  P("colores", "Une cada fruta con su color", [["Plátano", "Amarillo"], ["Fresa", "Rojo"], ["Kiwi", "Verde"], ["Arándano", "Azul"]]),
+  P("emojis", "Une cada emoji con su palabra", [["🧀", "Queso"], ["🥕", "Zanahoria"], ["🍯", "Miel"], ["🍄", "Champiñón"]]),
+  P("ingredientes", "Une cada ingrediente principal con su plato", [["Arroz", "Paella"], ["Patata", "Tortilla"], ["Garbanzos", "Cocido"], ["Pan duro", "Torrijas"]]),
+  P("dobles", "Une cada número con su doble", [["6", "12"], ["9", "18"], ["15", "30"], ["25", "50"]]),
+  P("contrarios", "Une cada palabra con su contrario", [["Frío", "Caliente"], ["Dulce", "Salado"], ["Crudo", "Cocinado"], ["Lleno", "Vacío"]]),
+
+  // Ordenar
+  OR("tortilla", "Ordena", "Ordena los pasos para hacer una tortilla", ["Pelar las patatas", "Freír las patatas", "Batir los huevos", "Mezclar y cuajar"], "¿Qué haces antes de freír?"),
+  OR("tamanos", "Ordena", "Ordena de más pequeño a más grande", ["Hormiga", "Ratón", "Perro", "Elefante"], "Empieza por el que cabe en tu mano… y sobra sitio."),
+  OR("pera", "Palabra secreta", "Toca las letras en orden para formar una fruta", ["P", "E", "R", "A"], "Verde por fuera, blanca por dentro."),
+  OR("limon", "Palabra secreta", "Toca las letras en orden para formar una fruta muy ácida", ["L", "I", "M", "Ó", "N"], "Amarillo y te hace poner caras raras."),
+  OR("pasta", "Palabra secreta", "Toca las letras en orden para formar algo que se come con tenedor", ["P", "A", "S", "T", "A"], "Italia la adora."),
+  OR("menu", "Ordena", "Ordena un menú de restaurante", ["Entrante", "Primer plato", "Segundo plato", "Postre"], "El postre siempre al final."),
+  OR("comidas", "Ordena", "Ordena las comidas del día", ["Desayuno", "Comida", "Merienda", "Cena"], "Empieza al despertarte."),
+  OR("fracciones", "Ordena", "Ordena de menor a mayor cantidad de tarta", ["Un cuarto", "Media", "Tres cuartos", "Entera"], "La entera es la que más llena.")
 ];
 
-function retoDelBanco() {
+function preparar(r) {
+  const x = JSON.parse(JSON.stringify(r));
+  if (x.tipo === "opciones") x.opciones = barajar([...x.opciones]);
+  if (x.tipo === "parejas") { x.izquierda = barajar(x.pares.map((p) => p.a)); x.derecha = barajar(x.pares.map((p) => p.b)); }
+  if (x.tipo === "orden") {
+    let m = barajar([...x.elementos]);
+    for (let i = 0; i < 5 && m.join("|") === x.elementos.join("|"); i++) m = barajar([...x.elementos]);
+    x.mezclados = m;
+  }
+  return x;
+}
+function retoDelBanco(tipo) {
   let vistos = [];
   try { vistos = JSON.parse(localStorage.getItem("retosVistos") || "[]"); } catch { /* nada */ }
-  let libres = BANCO_RETOS.filter((r) => !vistos.includes(r.id));
-  if (!libres.length) { vistos = []; libres = BANCO_RETOS; }
+  const delTipo = BANCO_RETOS.filter((r) => !tipo || r.tipo === tipo);
+  let libres = delTipo.filter((r) => !vistos.includes(r.id));
+  if (!libres.length) { vistos = vistos.filter((v) => !delTipo.some((r) => r.id === v)); libres = delTipo; }
   const r = libres[Math.floor(Math.random() * libres.length)];
   try { localStorage.setItem("retosVistos", JSON.stringify([...vistos, r.id])); } catch { /* nada */ }
-  return { ...r, opciones: barajar([...r.opciones]) };
+  return preparar(r);
 }
 
 const ESTILOS_IA = [
-  ["Pensamiento lateral", "Situación misteriosa con una explicación ingeniosa, como «Un hombre empuja su coche hasta un hotel y sabe que está arruinado» → «Está jugando al Monopoly»."],
-  ["Lógica (Layton)", "Puzle de razonamiento con números pequeños, balanzas, cortes o recorridos, como «¿Cuántas pesadas necesitas para encontrar la bola más pesada entre 8?» → «2»."],
-  ["Emoji-plato", "Un plato o postre conocido expresado con 3–5 emojis, como «🍚 + 🦐 + 🍋 + 🥘» → «Paella». Las opciones incorrectas deben ser platos parecidos."],
-  ["Adivinanza", "Adivinanza en verso, con juego de palabras, al estilo de las adivinanzas populares españolas."],
-  ["¿Verdad o bulo?", "Dato curioso y verificable sobre comida o cocina, con respuestas sorprendentes pero ciertas."],
-  ["Pregunta trampa", "Pregunta breve que parece fácil pero tiene truco, como «¿Cuántos meses tienen 28 días?» → «Los 12»."]
+  ["Adivinanza", "Adivinanza corta y graciosa con juego de palabras, como «Tengo dientes pero nunca muerdo» → «Un peine»."],
+  ["Pregunta trampa", "Pregunta muy corta con truco divertido, como «Un gallo pone un huevo en un tejado, ¿hacia dónde cae?» → «Los gallos no ponen huevos»."],
+  ["El intruso", "Cuatro cosas de cocina o comida donde una no encaja, como «Lentejas · Garbanzos · Alubias · Plátano» → «Plátano»."],
+  ["Emoji-plato", "Un plato conocido con 3–4 emojis, como «🍕 + 🍍 + 🥓» → «Pizza hawaiana»."]
 ];
 
 export async function generarAcertijo(edad = 16) {
-  if (Math.random() < 0.6) return retoDelBanco();
+  const x = Math.random();
+  if (x < 0.22) return retoDelBanco("parejas");
+  if (x < 0.44) return retoDelBanco("orden");
+  if (x < 0.82) return retoDelBanco("opciones");
   try {
     const [categoria, guia] = ESTILOS_IA[Math.floor(Math.random() * ESTILOS_IA.length)];
-    const r = await pedirJSON([`Crea UN reto nuevo y original de tipo «${categoria}» en castellano de España para alguien de ${edad} años.
+    const r = await pedirJSON([`Crea UN reto nuevo de tipo «${categoria}» en castellano de España para alguien de ${edad} años.
 ${guia}
-Requisitos: divertido, ingenioso, resoluble en menos de un minuto, con UNA única respuesta correcta indiscutible y 3 opciones incorrectas plausibles (máximo 6 palabras cada una). No uses retos muy conocidos de los ejemplos.
-Comprueba tú mismo que la respuesta es correcta antes de responder.
-Devuelve JSON: {"pregunta": string, "opciones": [4 strings], "correcta": string idéntica a una opción, "pista": string corta que ayude sin desvelar, "explicacion": string corta}`],
-      "Eres KeKoMeMos, un creador de acertijos premium (estilo Profesor Layton, Paul Sloane y Mensa) para adolescentes que quieren descubrir el menú del día.");
+Requisitos: muy divertido y con humor, FÁCIL de resolver en menos de 30 segundos, con UNA única respuesta correcta indiscutible y 3 opciones incorrectas graciosas pero claramente erróneas (máximo 5 palabras cada una). No copies los ejemplos.
+Devuelve JSON: {"pregunta": string, "opciones": [4 strings], "correcta": string idéntica a una opción, "pista": string corta, "explicacion": string corta y simpática}`],
+      "Eres KeKoMeMos, un creador de retos divertidos y sencillos para adolescentes que quieren descubrir el menú del día.");
     if (!r?.pregunta || !Array.isArray(r.opciones) || r.opciones.length < 3 || !r.opciones.includes(r.correcta)) throw new Error("acertijo mal formado");
     // Comprobación a ciegas: la IA resuelve el reto sin ver la respuesta; si no coincide, se descarta
-    const sol = await pedirJSON([`Resuelve este reto con cuidado, razonando paso a paso por dentro.
+    const sol = await pedirJSON([`Resuelve este reto con cuidado.
 Reto: ${r.pregunta}
 Opciones: ${r.opciones.map((o, i) => `${i + 1}) ${o}`).join("  ")}
-Devuelve JSON: {"respuesta": "el texto exacto de la opción correcta", "segura": true|false}`], "Eres un experto en acertijos, lógica y cultura general. Eres riguroso.");
-    const limpio = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+Devuelve JSON: {"respuesta": "el texto exacto de la opción correcta", "segura": true|false}`], "Eres un experto en acertijos. Eres riguroso.");
+    const limpio = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
     if (!sol?.segura || limpio(sol.respuesta) !== limpio(r.correcta)) throw new Error("reto dudoso descartado");
-    return { categoria, pregunta: r.pregunta, opciones: barajar([...r.opciones]), correcta: r.correcta, pista: r.pista || "", explicacion: r.explicacion || "", ia: true };
+    return preparar({ tipo: "opciones", categoria, pregunta: r.pregunta, opciones: r.opciones, correcta: r.correcta, pista: r.pista || "", explicacion: r.explicacion || "", ia: true });
   } catch (e) {
     console.warn("Reto del banco:", e);
-    return retoDelBanco();
+    return retoDelBanco("opciones");
   }
 }
 

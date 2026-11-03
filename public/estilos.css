@@ -747,3 +747,139 @@ fieldset.tipos legend { padding: 0; margin-bottom: 6px; }
 .reinicios .btn { justify-content: flex-start; text-align: left; min-height: 64px; padding: 10px 14px; }
 .reinicios .btn span { display: flex; flex-direction: column; gap: 2px; }
 .reinicios .btn small { font-weight: 500; font-size: 13px; color: var(--suave); }
+
+/* ---------- Bloqueo de los menores hasta acertar ---------- */
+.bloqueo-reto { position: fixed; inset: 0; z-index: 45; overflow-y: auto; background: var(--fondo);
+  padding: calc(14px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
+.bloqueo-reto .hero-keko { flex: 1; justify-content: center; min-height: 70dvh; }
+.bloqueo-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+@media (min-width: 900px) { .bloqueo-reto { padding: 28px 15vw; } }
+
+/* ---------- Retos de parejas y de ordenar ---------- */
+.reto-instruccion { margin: 0; font-size: 14px; }
+.parejas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.parejas .pila { gap: 8px; }
+.btn.pareja { min-height: 56px; font-size: 16px; border-radius: 14px; }
+.btn.pareja.elegida { background: var(--acento); color: var(--sobre-acento); border-color: var(--acento); transform: scale(1.03); }
+.btn.pareja.hecha { background: #DFF5E6; border-color: #2E8B57; color: #1d5c39; opacity: 1; }
+.btn.pareja.hecha::after { content: " ✓"; }
+.orden-hecho { display: flex; flex-wrap: wrap; gap: 6px; }
+.orden-hecho span { min-width: 40px; min-height: 40px; padding: 6px 10px; border-radius: 10px; border: 2px dashed var(--borde); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: var(--suave); }
+.orden-hecho span.lleno { border-style: solid; border-color: #2E8B57; background: #DFF5E6; color: #1d5c39; }
+.reto-opciones.orden .btn:disabled { opacity: .35; }
+
+/* ---------- Fecha de nacimiento ---------- */
+.campo-fecha { min-width: 0; }
+.campo-fecha .entrada-texto { max-width: 100%; letter-spacing: .06em; font-size: 18px; }
+.fecha-o { font-weight: 500; font-size: 13px; color: var(--suave); }
+.fecha-selects { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr) minmax(0, 1fr); gap: 6px; }
+.fecha-selects select { min-width: 0; width: 100%; min-height: 46px; padding: 8px; border-radius: var(--radio-boton); border: max(1px, var(--grosor)) solid var(--borde); background: var(--tarjeta); font-size: 15px; }
+.campo-fecha.fecha-mal .entrada-texto { border-color: #C8211B; background: #FFF1EE; }
+.entrada-caja input, .entrada-caja select { max-width: 100%; }
+
+/* ---------- Interruptor (Este dispositivo) ---------- */
+.interruptor { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 14px; border-radius: var(--radio-boton); background: var(--panel); cursor: pointer; position: relative; }
+.int-texto { display: flex; flex-direction: column; gap: 2px; }
+.int-texto small { color: var(--suave); font-size: 13px; }
+.interruptor input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.int-pista { width: 52px; height: 30px; border-radius: 15px; background: var(--borde); position: relative; transition: background .2s; flex-shrink: 0; }
+.int-pista::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+.interruptor input:checked + .int-pista { background: var(--primario); }
+.interruptor input:checked + .int-pista::after { transform: translateX(22px); }
+.interruptor input:focus-visible + .int-pista { outline: 3px solid var(--acento); outline-offset: 2px; }
+
+/* ---------- Tareas: estados, verificar y restar ---------- */
+.estado-tarea { font-size: 13px; font-weight: 700; border-radius: 12px; padding: 3px 8px; white-space: nowrap; }
+.estado-tarea.pendiente { background: #FFF4E5; color: #8a5300; }
+.estado-tarea.rechazada { background: #FDE8E6; color: #A3231B; }
+.estado-tarea.resta { background: #FDE8E6; color: #A3231B; }
+.lista.verificar li { flex-wrap: wrap; }
+.lista.verificar .btn { min-height: 42px; }
+.elegible { display: flex; flex-direction: column; align-items: center; gap: 6px; font-weight: 700; padding: 8px; border-radius: var(--radio); cursor: pointer; }
+.elegible input { position: absolute; opacity: 0; }
+.elegible:has(input:checked) .avatar { outline: 4px solid var(--acento); outline-offset: 3px; }
+.chip:has(input:checked) { background: var(--primario); color: var(--sobre-primario); border-color: var(--primario); }
+
+.aviso-invitacion { background: linear-gradient(110deg, #FFF0F3, #FFF7E6); border: 2px solid #FF8A3D; border-radius: var(--radio-boton); padding: 12px 14px; line-height: 1.4; }
+.zona-familias { border-color: #C9B6F2; background: linear-gradient(180deg, #F7F3FF, var(--tarjeta)); }
+
+/* =========================================================
+   TEMAS PREMIUM CON AZULEJOS (Pizarra clara se queda igual)
+   Texturas dibujadas en SVG: azulejo portugués, metro (subway),
+   damero de diner y zellige marroquí.
+   ========================================================= */
+body { background-image: var(--textura, none); background-size: var(--textura-tam, auto); }
+[data-tema="pizarra"] { --textura: none; }
+
+/* --- Azulejo · Lisboa: cobalto sobre blanco esmaltado --- */
+[data-tema="azulejo"] {
+  --fondo: #F4F7FC; --tarjeta: #FFFFFF; --panel: #EAF0FA; --borde: #D3DDF0; --borde-fuerte: #1D4DA0;
+  --tinta: #0F1E3D; --suave: #4B5B7C; --primario: #1D4DA0; --sobre-primario: #FFFFFF;
+  --acento: #E8B33B; --sobre-acento: #10203F; --oscuro: #0F1E3D; --sobre-oscuro: #FFFFFF; --destacado: #1D4DA0;
+  --foto-a: #EAF0FA; --foto-b: #DCE5F5; --radio: 20px; --radio-boton: 14px; --grosor: 1.5px;
+  --sombra: 0 1px 2px rgba(15,30,61,.05), 0 10px 28px rgba(29,77,160,.10);
+  --franja: 0 solid transparent;
+  --textura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Crect width='72' height='72' fill='%23F4F7FC'/%3E%3Cg fill='none' stroke='%231D4DA0' stroke-opacity='.13' stroke-width='1.6'%3E%3Crect x='.8' y='.8' width='70.4' height='70.4'/%3E%3Ccircle cx='36' cy='36' r='13'/%3E%3Cpath d='M36 8 L42 30 L64 36 L42 42 L36 64 L30 42 L8 36 L30 30 Z'/%3E%3Cpath d='M0 18 A18 18 0 0 0 18 0 M54 0 A18 18 0 0 0 72 18 M72 54 A18 18 0 0 0 54 72 M18 72 A18 18 0 0 0 0 54'/%3E%3C/g%3E%3Ccircle cx='36' cy='36' r='4' fill='%231D4DA0' fill-opacity='.16'/%3E%3C/svg%3E");
+  --textura-tam: 72px 72px;
+}
+[data-tema="azulejo"] .nav { background: rgba(255,255,255,.88); backdrop-filter: blur(10px); }
+[data-tema="azulejo"] .cab-familia { color: var(--primario); }
+[data-tema="azulejo"] .hero-keko { background: linear-gradient(160deg, #2A63C6 0%, #1D4DA0 60%, #143a7c 100%); color: #fff; }
+[data-tema="azulejo"] .hero-titulo span { color: var(--acento); opacity: 1; }
+[data-tema="azulejo"] .plato .foto { border-bottom: 6px solid; border-image: repeating-linear-gradient(90deg, #1D4DA0 0 12px, #fff 12px 24px) 6; }
+
+/* --- Nórdico · cocina escandinava: salvia, roble y azulejo metro --- */
+[data-tema="nordico"] {
+  --fondo: #EDEFEA; --tarjeta: #FBFBF9; --panel: #F1F3EF; --borde: #DCE1DA; --borde-fuerte: #4C6A59;
+  --tinta: #222C27; --suave: #5D6A63; --primario: #3F5E4D; --sobre-primario: #FFFFFF;
+  --acento: #B98B5E; --sobre-acento: #FFFFFF; --oscuro: #222C27; --sobre-oscuro: #FFFFFF; --destacado: #8A6A47;
+  --foto-a: #E7EBE5; --foto-b: #DCE2DA; --radio: 26px; --radio-boton: 18px; --grosor: 0px;
+  --sombra: 0 1px 2px rgba(34,44,39,.04), 0 12px 32px rgba(34,44,39,.08);
+  --textura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60' viewBox='0 0 120 60'%3E%3Crect width='120' height='60' fill='%23E3E7E1'/%3E%3Cg fill='%23F2F4F0'%3E%3Crect x='1.5' y='1.5' width='117' height='27' rx='5'/%3E%3Crect x='-58.5' y='31.5' width='117' height='27' rx='5'/%3E%3Crect x='61.5' y='31.5' width='117' height='27' rx='5'/%3E%3C/g%3E%3Cg fill='%23FFFFFF' fill-opacity='.55'%3E%3Crect x='6' y='4' width='60' height='4' rx='2'/%3E%3Crect x='66' y='34' width='50' height='4' rx='2'/%3E%3Crect x='4' y='34' width='40' height='4' rx='2'/%3E%3C/g%3E%3C/svg%3E");
+  --textura-tam: 120px 60px;
+}
+[data-tema="nordico"] .tarjeta, [data-tema="nordico"] .panel { border: 1px solid rgba(34,44,39,.06); }
+[data-tema="nordico"] .nav { background: rgba(251,251,249,.9); backdrop-filter: blur(12px); }
+[data-tema="nordico"] .hero-keko { background: linear-gradient(160deg, #D9B48C 0%, #B98B5E 70%, #8A6A47 100%); color: #fff; }
+[data-tema="nordico"] .btn-acento { background: var(--acento); color: #fff; }
+
+/* --- Diner retro · años 50: rojo cereza, cromado y suelo de damero --- */
+[data-tema="diner"] {
+  --fondo: #FFF6E9; --tarjeta: #FFFFFF; --panel: #FFFDF8; --borde: #1E1412; --borde-fuerte: #1E1412;
+  --tinta: #1E1412; --suave: #5C4740; --primario: #0E7C7B; --sobre-primario: #FFFFFF;
+  --acento: #D7263D; --sobre-acento: #FFFFFF; --oscuro: #1E1412; --sobre-oscuro: #FFF6E9; --destacado: #D7263D;
+  --foto-a: #FCE3DC; --foto-b: #F8D0C6; --radio: 10px; --radio-boton: 999px; --grosor: 2.5px;
+  --sombra: 5px 5px 0 #1E1412; --franja: 0 solid transparent;
+  --textura: conic-gradient(rgba(30,20,18,.06) 25%, transparent 0 50%, rgba(30,20,18,.06) 0 75%, transparent 0);
+  --textura-tam: 56px 56px;
+}
+[data-tema="diner"] .app { border-top: 0; }
+[data-tema="diner"] .cabecera { position: relative; padding-top: calc(26px + env(safe-area-inset-top)); }
+[data-tema="diner"] .cabecera::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 14px;
+  background: conic-gradient(#1E1412 25%, #FFF6E9 0 50%, #1E1412 0 75%, #FFF6E9 0) 0 0 / 14px 14px; }
+[data-tema="diner"] .cab-familia { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; color: var(--acento); text-shadow: 2px 2px 0 #1E1412; letter-spacing: .02em; }
+[data-tema="diner"] .btn-primario { background: linear-gradient(#14a3a1, #0E7C7B); box-shadow: inset 0 2px 0 rgba(255,255,255,.35); }
+[data-tema="diner"] .btn-acento { background: linear-gradient(#ef3b52, #D7263D); box-shadow: inset 0 2px 0 rgba(255,255,255,.35); }
+[data-tema="diner"] .nav { background: #1E1412; border-color: #1E1412; }
+[data-tema="diner"] .nav button { color: #FFF6E9; }
+[data-tema="diner"] .nav button[aria-current="page"] { background: var(--acento); color: #fff; }
+[data-tema="diner"] .hero-keko { background: radial-gradient(circle at 50% 0%, #ff6b6b, #D7263D 60%, #9b1428); color: #fff; border: 3px solid #1E1412; box-shadow: 6px 6px 0 #1E1412; }
+
+/* --- Cielo · zellige: azulejo marroquí esmaltado en azules --- */
+[data-tema="cielo"] {
+  --fondo: #EEF3FB; --tarjeta: #FFFFFF; --panel: #F3F7FD; --borde: #D4DEEF; --borde-fuerte: #2A5BC4;
+  --tinta: #14203D; --suave: #56627E; --primario: #2A5BC4; --sobre-primario: #FFFFFF;
+  --acento: #F2A531; --sobre-acento: #14203D; --oscuro: #14203D; --sobre-oscuro: #FFFFFF; --destacado: #A86A00;
+  --foto-a: #E7EEF9; --foto-b: #DAE4F4; --radio: 24px; --radio-boton: 16px; --grosor: 1px;
+  --sombra: 0 1px 2px rgba(20,32,61,.05), 0 14px 34px rgba(42,91,196,.10);
+  --textura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='88' height='88' viewBox='0 0 88 88'%3E%3Crect width='88' height='88' fill='%23E2EAF6'/%3E%3Crect x='2' y='2' width='40' height='40' rx='6' fill='%23F2F6FD'/%3E%3Crect x='46' y='2' width='40' height='40' rx='6' fill='%23E9F0FB'/%3E%3Crect x='2' y='46' width='40' height='40' rx='6' fill='%23EDF3FC'/%3E%3Crect x='46' y='46' width='40' height='40' rx='6' fill='%23F5F8FE'/%3E%3Cg fill='%23FFFFFF' fill-opacity='.7'%3E%3Cpath d='M8 8 h14 v3 h-11 v11 h-3 z'/%3E%3Cpath d='M52 52 h14 v3 h-11 v11 h-3 z'/%3E%3C/g%3E%3C/svg%3E");
+  --textura-tam: 88px 88px;
+}
+[data-tema="cielo"] .nav { background: rgba(255,255,255,.9); backdrop-filter: blur(12px); }
+[data-tema="cielo"] .hero-keko { background: linear-gradient(150deg, #5B8DEF 0%, #2A5BC4 65%, #1C3F8E 100%); color: #fff; }
+[data-tema="cielo"] .hero-titulo span { color: var(--acento); opacity: 1; }
+[data-tema="cielo"] .tarjeta { border-color: rgba(42,91,196,.10); }
+
+/* tarjetas y paneles «flotando» sobre los azulejos */
+[data-tema="azulejo"] .tarjeta, [data-tema="cielo"] .tarjeta, [data-tema="nordico"] .tarjeta { box-shadow: var(--sombra); }
+[data-tema="azulejo"] .panel, [data-tema="cielo"] .panel, [data-tema="nordico"] .panel { box-shadow: var(--sombra); background: color-mix(in srgb, var(--panel) 92%, transparent); }

@@ -34,10 +34,10 @@ const CLAVE_RECAPTCHA = "6LekgfYtAAAAAOUybA3BxYe5LinYo8r51g2eVw_f";
 
 const TEMAS = [
   { id: "pizarra", nombre: "Pizarra clara", colores: ["#EAF1EC", "#2E6B4F", "#F2C94C"] },
-  { id: "azulejo", nombre: "Azulejo", colores: ["#FFFFFF", "#1F4FA8", "#E0A526"] },
-  { id: "nordico", nombre: "Nórdico", colores: ["#EEF0EC", "#4D6B5A", "#23302A"] },
-  { id: "diner", nombre: "Diner retro", colores: ["#FFF4E2", "#B00E28", "#0F6E6E"] },
-  { id: "cielo", nombre: "Cielo", colores: ["#EEF2FA", "#2F5FC4", "#F5A524"] }
+  { id: "azulejo", nombre: "Azulejo de Lisboa", colores: ["#F4F7FC", "#1D4DA0", "#E8B33B"] },
+  { id: "nordico", nombre: "Nórdico metro", colores: ["#EDEFEA", "#3F5E4D", "#B98B5E"] },
+  { id: "diner", nombre: "Diner retro", colores: ["#FFF6E9", "#D7263D", "#0E7C7B"] },
+  { id: "cielo", nombre: "Zellige azul", colores: ["#EEF3FB", "#2A5BC4", "#F2A531"] }
 ];
 const TIPOS_PLATO = [["comida", "Comida"], ["cena", "Cena"], ["postre", "Postre"], ["merienda", "Merienda"], ["desayuno", "Desayuno"], ["entrante", "Entrante"]];
 const MINUTOS_INACTIVIDAD = 20; // en la tablet, tras este tiempo sin uso vuelve a preguntar «¿Quién eres?»
@@ -51,7 +51,7 @@ const TAREAS = [
   { id: "basura", nombre: "Sacar la basura", hecho: "ha sacado la basura", puntos: 5 },
   { id: "compra", nombre: "Hacer la compra", hecho: "ha hecho la compra", puntos: 20 }
 ];
-const PUNTOS_RETO = 5;
+const PUNTOS_RETO = 2;
 const EDAD_ADULTO = 21;
 
 // ---------- FIREBASE ----------
@@ -83,22 +83,26 @@ const guardarFotoWeb = httpsCallable(nube, "guardarFotoWeb", { timeout: 70000 })
 // ---------- ESTADO ----------
 const S = {
   user: null, hogarId: null, hogar: null, yo: null,
-  miembros: [], recetas: [], menus: {}, despensa: [], avisos: [], tareasHoy: [],
+  miembros: [], recetas: [], menus: {}, despensa: [], avisos: [], tareasHoy: [], tareasPendientes: [], pendientesVistos: 0,
   activoId: null, ultimoUso: Date.now(), retoInline: null,
   vista: "hoy", param: null, semana: 0, mesOffset: 0, modoCal: "semana", asignarA: null, filtro: "todas", busqueda: "",
   intercambio: null, borrador: null, editorFoto: null,
   inicio: Date.now(), vistos: new Set(), cargado: new Set(), pendiente: false,
   desuscribir: []
 };
+if (EMULADORES) window.__S = S; // solo para las pruebas automáticas en local
 const esTablet = () => localStorage.getItem("modoTablet") === "1";
 // Persona que usa la app ahora: en el móvil, la de la cuenta; en la tablet, la que elige «¿Quién eres?»
 const yoActivo = () => (esTablet() && miembro(S.activoId)) || S.yo;
 const esAdulto = () => yoActivo()?.rol === "adulto";
 const esMenor = () => yoActivo()?.rol === "menor";
 const esAdmin = () => S.hogar?.admin === S.user?.uid;
-const puedeOrdenarFamilia = () => esAdulto() || esAdmin();
-// Reinicios: solo la cuenta titular del hogar (Rubén) o un adulto llamado Rubén
-const puedeReiniciar = () => esAdmin() || (esAdulto() && normal(yoActivo()?.nombre) === "ruben");
+const SUPERADMIN = "rubencarbo@gmail.com";
+const esSuper = () => S.user?.email === SUPERADMIN && S.user?.emailVerified !== false;
+const puedeOrdenarFamilia = () => esAdulto();
+// «Jefe» de la familia: el titular del hogar (o Rubén) cuando es él quien usa la app
+const esJefe = () => esAdulto() && (esAdmin() || esSuper() || normal(yoActivo()?.nombre) === "ruben");
+const puedeReiniciar = esJefe;
 
 // ---------- UTILIDADES ----------
 const $ = (s, r = document) => r.querySelector(s);
@@ -213,6 +217,10 @@ async function subirImagen(ruta, blob) {
 // =========================================================
 const paramUnir = new URLSearchParams(location.search).get("unir");
 if (paramUnir) sessionStorage.setItem("unir", paramUnir.toUpperCase());
+// Enlace de invitación para crear una familia nueva (lo genera Rubén)
+const paramInvitacion = new URLSearchParams(location.search).get("invitacion");
+if (paramInvitacion) localStorage.setItem("invitacion", paramInvitacion);
+const invitacionGuardada = () => localStorage.getItem("invitacion") || "";
 
 function mostrarEntrada(modo) {
   $("#cargando").hidden = true;
@@ -226,6 +234,7 @@ function mostrarEntrada(modo) {
         <div class="etiqueta">Bienvenidos</div>
         <h1 class="titulo">KeKoMeMos</h1>
         <p class="suave">Menús, recetas, lista de la compra y avisos para toda la casa.</p>
+        ${invitacionGuardada() ? `<div class="aviso-invitacion">🎉 <b>¡Te han invitado a crear tu familia en KeKoMeMos!</b><br>Entra con tu cuenta de Google para empezar.</div>` : ""}
         <button class="btn btn-primario btn-grande" data-accion="login-google">Entrar con Google</button>
         <button class="btn btn-grande" data-accion="login-anonimo">Entrar con el código familiar</button>
         <p class="suave" style="font-size:14px">Los adultos entran con su cuenta de Google. Los chicos pueden entrar solo con el código o el QR que tiene el administrador.</p>
@@ -251,8 +260,7 @@ function mostrarEntrada(modo) {
     cuerpo = `
       <form class="tarjeta seccion pila" data-form="union-soy">
         <div class="fila">${avatar(m, 64)}<h2 class="titulo">Hola, ${esc(m?.nombre)}</h2></div>
-        <label class="campo">Para comprobar que eres tú, ¿cuál es tu fecha de nacimiento?
-          <input name="nacimiento" type="date" required></label>
+        ${campoFecha("Para comprobar que eres tú, ¿cuál es tu fecha de nacimiento?")}
         <button class="btn btn-primario btn-grande">Entrar</button>
         <button type="button" class="btn-enlace" data-accion="union-elegir">‹ No soy yo</button>
       </form>`;
@@ -274,9 +282,10 @@ function mostrarEntrada(modo) {
         </label>
         <button class="btn btn-primario btn-grande">Continuar</button>
       </form>
-      ${anonimo ? "" : `
+      ${anonimo || !(invitacionGuardada() || esSuper()) ? "" : `
       <form class="tarjeta seccion pila" data-form="crear-hogar">
-        <h2 class="h2">…o crear un hogar nuevo</h2>
+        <h2 class="h2">${invitacionGuardada() ? "🎉 Crea tu familia" : "…o crear un hogar nuevo"}</h2>
+        ${invitacionGuardada() ? `<p class="suave" style="margin:0">Tienes una invitación para crear tu propia familia. Tú serás quien la administre.</p>` : ""}
         <label class="campo">Nombre del hogar <input name="hogar" required placeholder="Casa de los García"></label>
         ${camposPerfil()}
         <button class="btn btn-grande">Crear hogar</button>
@@ -289,11 +298,53 @@ function mostrarEntrada(modo) {
       <button class="btn btn-linea" data-accion="salir">Cerrar sesión</button>
     </div>`;
 }
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+function campoFecha(etiqueta, ayuda = "") {
+  const anio = new Date().getFullYear();
+  return `<div class="campo campo-fecha">
+    <label for="fecha-texto">${etiqueta}</label>
+    <input id="fecha-texto" name="nacimientoTexto" class="entrada-texto" inputmode="numeric" autocomplete="bday" placeholder="dd/mm/aaaa" maxlength="10" data-input="fecha-texto">
+    <span class="fecha-o">o elige:</span>
+    <div class="fecha-selects">
+      <select data-input="fecha-sel" data-parte="d" aria-label="Día"><option value="">Día</option>${Array.from({ length: 31 }, (_, i) => `<option>${i + 1}</option>`).join("")}</select>
+      <select data-input="fecha-sel" data-parte="m" aria-label="Mes"><option value="">Mes</option>${MESES.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("")}</select>
+      <select data-input="fecha-sel" data-parte="y" aria-label="Año"><option value="">Año</option>${Array.from({ length: 100 }, (_, i) => `<option>${anio - i}</option>`).join("")}</select>
+    </div>
+    <input type="hidden" name="nacimiento">
+    ${ayuda ? `<small>${ayuda}</small>` : ""}
+  </div>`;
+}
+// sincroniza el texto, los desplegables y el valor real (aaaa-mm-dd)
+function sincronizarFecha(caja, origen) {
+  const txt = caja.querySelector('[data-input="fecha-texto"]');
+  const sel = (p) => caja.querySelector(`[data-parte="${p}"]`);
+  const oculto = caja.querySelector('input[name="nacimiento"]');
+  let d, m, y;
+  if (origen === "texto") {
+    const dig = txt.value.replace(/\D/g, "").slice(0, 8);
+    txt.value = dig.length > 4 ? `${dig.slice(0, 2)}/${dig.slice(2, 4)}/${dig.slice(4)}` : dig.length > 2 ? `${dig.slice(0, 2)}/${dig.slice(2)}` : dig;
+    if (dig.length === 8) { d = +dig.slice(0, 2); m = +dig.slice(2, 4); y = +dig.slice(4); }
+  } else {
+    d = +sel("d").value; m = +sel("m").value; y = +sel("y").value;
+  }
+  const valida = d && m && y && y > 1900 && new Date(y, m - 1, d).getDate() === d && new Date(y, m - 1, d) <= new Date();
+  if (valida) {
+    oculto.value = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    if (origen === "texto") { sel("d").value = String(d); sel("m").value = String(m); sel("y").value = String(y); }
+    else txt.value = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+  } else oculto.value = "";
+  caja.classList.toggle("fecha-mal", !valida && (txt.value.length === 10 || origen === "sel" && d && m && y));
+}
+const fechaDe = (f) => {
+  const v = f.get("nacimiento");
+  if (!v) notificar("Escribe la fecha de nacimiento (dd/mm/aaaa) o elígela.");
+  return v;
+};
+
 function camposPerfil() {
   return `
     <label class="campo">Tu nombre <input name="nombre" required maxlength="24" value="${esc(S.user?.displayName?.split(" ")[0] || "")}"></label>
-    <label class="campo">Fecha de nacimiento <input name="nacimiento" type="date" required>
-      <small>Sirve para adaptar el reto del menú. Hasta los ${EDAD_ADULTO} años el perfil es de menor.</small></label>`;
+    ${campoFecha("Fecha de nacimiento", `Sirve para adaptar el reto del menú. Hasta los ${EDAD_ADULTO} años el perfil es de menor.`)}`;
 }
 function generarCodigo() {
   const letras = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -309,6 +360,27 @@ function datosMiembro(f, codigo) {
 }
 
 const FORMULARIOS = {
+  async invitacion(f, form) {
+    const nota = String(f.get("nota") || "").trim();
+    const ref = await addDoc(collection(db, "invitaciones"), { creadaPor: S.user.uid, creadaMs: Date.now(), nota, usada: false });
+    form.reset();
+    S.invitaciones = null; render();
+    await compartirInvitacion(ref.id, nota);
+  },
+  async restar(f) {
+    const uid = f.get("uid"), n = Number(f.get("n")), motivo = f.get("motivo");
+    await addDoc(col$("tareas"), { tarea: "penalizacion", motivo, uid, puntos: -n, por: S.user.uid, quien: yoActivo().id, fecha: hoy(), estado: "ok", creadoMs: Date.now(), ts: serverTimestamp() });
+    await sumarPuntos(uid, -n);
+    cerrarModal();
+    notificar(`−${n} puntos para ${nombreDe(uid)} · ${motivo}`);
+  },
+  async renombrar(f, form) {
+    const nombre = String(f.get("nombre") || "").trim();
+    if (!nombre) return;
+    await updateDoc(ref$("miembros", form.dataset.id), { nombre });
+    cerrarModal();
+    notificar("Nombre cambiado");
+  },
   async reiniciar(f, form) {
     if (String(f.get("confirmar") || "").trim().toUpperCase() !== "BORRAR") return notificar("Escribe BORRAR para confirmar.");
     const b = form.querySelector("button"); b.disabled = true; b.textContent = "Reiniciando…";
@@ -330,30 +402,44 @@ const FORMULARIOS = {
   async "union-soy"(f, form) {
     const b = form.querySelector("button.btn-primario"); b.disabled = true; b.textContent = "Entrando…";
     try {
-      const r = await unirseFn({ accion: "soy", codigo: S.union.codigo, miembroId: S.union.miembroId, nacimiento: f.get("nacimiento") });
+      const nacimiento = fechaDe(f);
+      if (!nacimiento) { b.disabled = false; b.textContent = "Entrar"; return; }
+      const r = await unirseFn({ accion: "soy", codigo: S.union.codigo, miembroId: S.union.miembroId, nacimiento });
       await terminarUnion(r.data);
     } catch (e) { notificar(e.message || "No se ha podido entrar"); b.disabled = false; b.textContent = "Entrar"; }
   },
   async "union-nuevo"(f, form) {
     const b = form.querySelector("button.btn-primario"); b.disabled = true; b.textContent = "Uniéndote…";
     try {
-      const r = await unirseFn({ accion: "nuevo", codigo: S.union.codigo, nombre: f.get("nombre"), nacimiento: f.get("nacimiento") });
+      const nacimiento = fechaDe(f);
+      if (!nacimiento) { b.disabled = false; b.textContent = "Unirme"; return; }
+      const r = await unirseFn({ accion: "nuevo", codigo: S.union.codigo, nombre: f.get("nombre"), nacimiento });
       if (r.data.existente) notificar("¡Ya estabas en la familia! Entrando en tu perfil.");
       await terminarUnion(r.data);
     } catch (e) { notificar(e.message || "No se ha podido crear el perfil"); b.disabled = false; b.textContent = "Unirme"; }
   },
   async "crear-hogar"(f) {
+    if (!fechaDe(f)) return;
+    const inv = invitacionGuardada();
+    if (inv && !esSuper()) {
+      const d = await getDoc(doc(db, "invitaciones", inv)).catch(() => null);
+      if (!d?.exists() || d.data().usada) { localStorage.removeItem("invitacion"); mostrarEntrada("unirse"); return notificar("Esta invitación ya se ha usado o no existe. Pide otra a Rubén."); }
+    }
     const hogarRef = doc(collection(db, "hogares"));
     const codigo = generarCodigo();
+    const nombre = f.get("hogar").trim();
     const b = writeBatch(db);
-    b.set(hogarRef, { nombre: f.get("hogar").trim(), codigo, admin: S.user.uid, cocineraHabitual: S.user.uid, creado: serverTimestamp() });
+    b.set(hogarRef, { nombre, codigo, admin: S.user.uid, cocineraHabitual: S.user.uid, creado: serverTimestamp(), ...(inv ? { invitacion: inv } : {}) });
+    if (inv) b.update(doc(db, "invitaciones", inv), { usada: true, hogarId: hogarRef.id, familia: nombre, usadaPor: S.user.uid, usadaEmail: S.user.email || "", usadaMs: Date.now() });
     b.set(doc(db, "codigos", codigo), { hogarId: hogarRef.id });
     const m = datosMiembro(f, codigo);
     m.rol = "adulto";
     b.set(doc(db, "hogares", hogarRef.id, "miembros", S.user.uid), m);
     b.set(doc(db, "usuarios", S.user.uid), { hogarId: hogarRef.id });
     await b.commit();
+    localStorage.removeItem("invitacion");
     conectarHogar(hogarRef.id);
+    notificar(`¡Bienvenidos a KeKoMeMos, ${nombre}! Comparte el código ${codigo} con tu familia (Yo › Hogar).`);
   }
 };
 
@@ -412,6 +498,14 @@ function conectarHogar(hid) {
     onSnapshot(query(col$("avisos"), orderBy("ts", "desc"), limit(30)), (qs) => {
       S.avisos = qs.docs.map((d) => ({ id: d.id, ...d.data() }));
       qs.docChanges().forEach((c) => { if (c.type === "added") recibirAviso({ id: c.doc.id, ...c.doc.data() }); });
+    }, err),
+    onSnapshot(query(col$("tareas"), where("estado", "==", "pendiente")), (qs) => {
+      S.tareasPendientes = qs.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.creadoMs || 0) - (b.creadoMs || 0));
+      if ($("#app").hidden) return;
+      // al jefe le salta la verificación cuando hay tareas nuevas por revisar
+      if (esJefe() && S.tareasPendientes.length > S.pendientesVistos && $("#modal").hidden) modalVerificar();
+      S.pendientesVistos = S.tareasPendientes.length;
+      refrescar();
     }, err),
     onSnapshot(query(col$("tareas"), where("fecha", "==", hoy())), (qs) => {
       S.tareasHoy = qs.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (a.creadoMs || 0) - (b.creadoMs || 0));
@@ -538,6 +632,7 @@ function render() {
       <div class="fecha">${esc(fechaLarga(new Date()))}</div>
       <h1>${esc(titulos[S.vista] || "")}</h1>
     </div>`;
+  pintarBloqueo();
   const vistas = { hoy: vistaHoy, semana: vistaSemana, recetas: vistaRecetas, receta: vistaReceta, editor: vistaEditor, compra: vistaCompra, yo: vistaYo };
   $("#vista").innerHTML = (vistas[S.vista] || vistaHoy)();
 }
@@ -608,8 +703,18 @@ function tarjetaPlato(tipo, grande) {
     </div></article>`;
 }
 
+// Capa a pantalla completa: un menor no ve nada de la app hasta acertar el reto de la comida o cena actual
+function pintarBloqueo() {
+  let capa = $("#bloqueo-reto");
+  if (!capa) { capa = document.createElement("div"); capa.id = "bloqueo-reto"; capa.className = "bloqueo-reto"; document.body.appendChild(capa); }
+  const html = heroReto();
+  capa.hidden = !html;
+  capa.innerHTML = html ? `<div class="bloqueo-cab"><span class="cab-familia">${esc(S.hogar?.nombre || "KeKoMeMos")}</span>
+      ${esTablet() ? `<button class="btn" data-accion="cambiar-persona">No soy ${esc(yoActivo().nombre)}</button>` : ""}</div>${html}` : "";
+}
+
 // Pantalla grande para los menores: ¿KEKOmemos? / ¿KECEnamos? con un botón gigante
-const SEGUNDOS_BOMBA = EMULADORES ? 3 : 30;
+const SEGUNDOS_BOMBA = EMULADORES ? 3 : 10;
 function heroReto() {
   const tipo = comidaActual();
   const persona = yoActivo();
@@ -633,7 +738,8 @@ function prepararReto(persona, tipo) {
   const st = S.retoInline;
   if (st && st.personaId === persona.id && st.clave === clave) return st.promesa;
   const guardado = persona.reto?.clave === clave ? persona.reto : null;
-  const nuevo = { personaId: persona.id, tipo, clave, fallos: guardado?.fallos || [], bloqueoHasta: guardado?.bloqueoHasta || 0, pistaVista: !!guardado?.pistaVista };
+  const nuevo = { personaId: persona.id, tipo, clave, fallos: guardado?.fallos || [], bloqueoHasta: guardado?.bloqueoHasta || 0, pistaVista: !!guardado?.pistaVista,
+    progreso: guardado?.progreso || { hechas: [], secuencia: [] }, sel: null };
   S.retoInline = nuevo;
   nuevo.promesa = guardado?.datos
     ? Promise.resolve((nuevo.reto = guardado.datos))
@@ -644,7 +750,7 @@ function guardarReto() {
   const st = S.retoInline;
   if (!st?.reto) return;
   updateDoc(ref$("miembros", st.personaId), {
-    reto: { clave: st.clave, datos: st.reto, fallos: st.fallos, bloqueoHasta: st.bloqueoHasta, pistaVista: st.pistaVista }
+    reto: { clave: st.clave, datos: st.reto, fallos: st.fallos, bloqueoHasta: st.bloqueoHasta, pistaVista: st.pistaVista, progreso: st.progreso }
   }).catch(console.error);
 }
 async function abrirReto(persona = yoActivo(), tipo = comidaActual()) {
@@ -670,7 +776,7 @@ function pintarReto(persona) {
         <div><div class="bomba-cuenta" id="cuenta-bomba">00:${String(Math.ceil((st.bloqueoHasta - Date.now()) / 1000)).padStart(2, "0")}</div>
         <div class="bomba-texto">¡Fallaste! Espera a que la mecha se apague para volver a intentarlo…</div></div>
       </div>` : ""}
-    <div class="reto-opciones">${r.opciones.map((o, i) => `<button class="btn ${st.fallos.includes(i) ? "mal" : ""}" data-accion="responder-reto" data-i="${i}" ${bloqueado || st.fallos.includes(i) ? "disabled" : ""}>${esc(o)}</button>`).join("")}</div>
+    ${zonaRespuesta(st, bloqueado)}
     ${r.pista ? (st.pistaVista ? `<p class="reto-pista">💡 ${esc(r.pista)}</p>` : `<button class="btn-enlace" data-accion="ver-pista">💡 Ver una pista</button>`) : ""}`;
   clearInterval(S.relojBomba);
   if (bloqueado) {
@@ -683,6 +789,39 @@ function pintarReto(persona) {
     }, 250);
   }
 }
+// Zona para responder según el tipo de reto
+function zonaRespuesta(st, bloqueado) {
+  const r = st.reto, dis = bloqueado ? "disabled" : "";
+  if (r.tipo === "parejas") {
+    const hechas = st.progreso.hechas || [];
+    const parDe = (a) => r.pares.find((p) => p.a === a)?.b;
+    const bHechas = hechas.map(parDe);
+    const btn = (lado, v) => {
+      const hecha = lado === "a" ? hechas.includes(v) : bHechas.includes(v);
+      const sel = st.sel?.lado === lado && st.sel.v === v;
+      return `<button class="btn pareja ${hecha ? "hecha" : ""} ${sel ? "elegida" : ""}" data-accion="pareja" data-lado="${lado}" data-v="${esc(v)}" ${hecha || bloqueado ? "disabled" : ""}>${esc(v)}</button>`;
+    };
+    return `<p class="suave reto-instruccion">Toca uno de la izquierda y luego su pareja de la derecha (${hechas.length}/${r.pares.length}).</p>
+      <div class="parejas"><div class="pila">${r.izquierda.map((v) => btn("a", v)).join("")}</div><div class="pila">${r.derecha.map((v) => btn("b", v)).join("")}</div></div>`;
+  }
+  if (r.tipo === "orden") {
+    const sec = st.progreso.secuencia || [];
+    return `<p class="suave reto-instruccion">Toca en el orden correcto (${sec.length}/${r.elementos.length}).</p>
+      <div class="orden-hecho">${r.elementos.map((_, i) => `<span class="${sec[i] !== undefined ? "lleno" : ""}">${sec[i] !== undefined ? esc(r.mezclados[sec[i]]) : i + 1}</span>`).join("")}</div>
+      <div class="reto-opciones orden">${r.mezclados.map((v, i) => `<button class="btn" data-accion="orden" data-i="${i}" ${sec.includes(i) || bloqueado ? "disabled" : ""}>${esc(v)}</button>`).join("")}</div>`;
+  }
+  return `<div class="reto-opciones">${r.opciones.map((o, i) => `<button class="btn ${st.fallos.includes(i) ? "mal" : ""}" data-accion="responder-reto" data-i="${i}" ${dis} ${st.fallos.includes(i) ? "disabled" : ""}>${esc(o)}</button>`).join("")}</div>`;
+}
+function falloReto(st, persona) {
+  st.bloqueoHasta = Date.now() + SEGUNDOS_BOMBA * 1000;
+  st.sel = null;
+  guardarReto();
+  const caja = $("#modal .modal");
+  caja?.classList.remove("temblor"); void caja?.offsetWidth; caja?.classList.add("temblor");
+  navigator.vibrate?.([120, 60, 120]);
+  pintarReto(persona);
+}
+
 // Explosión de confeti desde el centro (estilo promociones de apps de compras)
 function estallido(n = 70) {
   const colores = ["#FFD84D", "#FF4D6D", "#FF8A00", "#3DDC97", "#4D9DFF", "#FFFFFF", "#C77DFF"];
@@ -739,9 +878,18 @@ function panelAvisos() {
 }
 
 function panelTareas() {
-  const hechas = S.tareasHoy.map((t) => `<li>${avatar(miembro(t.uid), 32)}<span class="crece"><b>${esc(nombreDe(t.uid))}</b> ${esc(TAREAS.find((x) => x.id === t.tarea)?.hecho || t.tarea)}</span><span class="suave">+${t.puntos}</span></li>`).join("");
+  const texto = (t) => t.tarea === "penalizacion" ? esc(t.motivo || "Penalización") : esc(TAREAS.find((x) => x.id === t.tarea)?.hecho || t.tarea);
+  const estado = (t) => t.estado === "pendiente" ? `<span class="estado-tarea pendiente">⏳ por verificar</span>`
+    : t.estado === "rechazada" ? `<span class="estado-tarea rechazada">✗ no contó</span>`
+    : `<span class="${t.puntos < 0 ? "estado-tarea resta" : "suave"}">${t.puntos > 0 ? "+" : ""}${t.puntos}</span>`;
+  const hechas = S.tareasHoy.map((t) => `<li>${avatar(miembro(t.uid), 32)}<span class="crece"><b>${esc(nombreDe(t.uid))}</b> ${texto(t)}</span>${estado(t)}</li>`).join("");
+  const pend = S.tareasPendientes.length;
   return `<section class="tarjeta seccion">
-    <div class="fila" style="justify-content:space-between;margin-bottom:12px"><h2 class="h2">Tareas de casa</h2><span class="suave" style="font-size:14px">suman puntos</span></div>
+    <div class="fila" style="justify-content:space-between;margin-bottom:12px"><h2 class="h2">Tareas de casa</h2><span class="suave" style="font-size:14px">${esMenor() ? "un adulto las verifica" : "suman puntos"}</span></div>
+    ${esJefe() ? `<div class="fila" style="margin-bottom:10px">
+      ${pend ? `<button class="btn btn-acento" data-accion="ver-pendientes">✓ Verificar tareas (${pend})</button>` : ""}
+      <button class="btn btn-peligro" data-accion="restar-puntos">− Restar puntos</button>
+    </div>` : ""}
     <div class="botones-aviso">
       ${TAREAS.map((t) => `<button class="btn" data-accion="tarea" data-tarea="${t.id}">${esc(t.nombre)} <span class="suave">+${t.puntos}</span></button>`).join("")}
     </div>
@@ -781,7 +929,6 @@ function vistaHoy() {
   if (esMenor()) {
     return `<div class="hoy">
       <div class="pila">
-        ${heroReto()}
         ${retoResuelto(actual) ? tarjetaPlato(actual, true) : ""}
         ${retoResuelto(otra) ? tarjetaPlato(otra, false) : ""}
         ${panelTareas()}
@@ -926,7 +1073,8 @@ function vistaRecetas() {
     <div class="fila">
       <label class="oculto-visual" for="buscar">Buscar receta</label>
       <input id="buscar" class="entrada-texto crece" placeholder="Buscar por nombre o ingrediente" value="${esc(S.busqueda)}" data-input="buscar">
-      ${esAdulto() ? `<button class="btn btn-primario" data-accion="anadir-receta">+ Añadir receta</button>` : ""}
+      ${esAdulto() ? `<button class="btn btn-primario" data-accion="anadir-receta">+ Añadir receta</button>
+        <button class="btn" data-accion="copia-recetas" title="Exportar o importar todas las recetas">⇅ Copia</button>` : ""}
     </div>
     <div class="chips-scroll">${filtros.map(([id, t]) => `<button class="chip" data-accion="filtro" data-filtro="${id}" aria-pressed="${S.filtro === id}">${esc(t)}</button>`).join("")}</div>
     ${lista.length ? `<div class="rejilla-recetas">${lista.map((r) => `
@@ -1098,15 +1246,22 @@ function vistaYo() {
       </section>
       <section class="tarjeta seccion pila">
         <h2 class="h2">Este dispositivo</h2>
-        <label class="fila"><input type="checkbox" data-input="modo-tablet" ${esTablet() ? "checked" : ""} style="width:24px;height:24px"> Es la tablet de la cocina (pregunta «¿Quién eres?» al abrir)</label>
-        ${esTablet() ? `<button class="btn" data-accion="cambiar-persona">Cambiar de persona</button>` : ""}
-        <button class="btn btn-linea" data-accion="salir">Cerrar sesión</button>
+        <label class="interruptor">
+          <span class="int-texto"><b>Tablet de la cocina</b><small>Al abrir pregunta «¿Quién eres?» y tiene su propio tema</small></span>
+          <input type="checkbox" role="switch" data-input="modo-tablet" ${esTablet() ? "checked" : ""}>
+          <span class="int-pista" aria-hidden="true"></span>
+        </label>
+        <div class="fila">
+          ${esTablet() ? `<button class="btn crece" data-accion="cambiar-persona">Cambiar de persona</button>` : ""}
+          <button class="btn btn-linea crece" data-accion="salir">Cerrar sesión</button>
+        </div>
       </section>
     </div>
     <div class="pila">
       ${panelRanking(true)}
       ${puedeOrdenarFamilia() ? panelHogar() : ""}
       ${puedeReiniciar() ? panelReinicio() : ""}
+      ${esSuper() ? panelFamilias() : ""}
       ${esAdulto() ? `<section class="tarjeta seccion pila"><h2 class="h2">KeKoMeMos (IA ${IA.CON_GEMINI ? "Gemini" : "gratuita · Cloudflare"})</h2>
         <p class="suave" style="margin:0">La IA escribe recetas, crea las fotos de los platos, pone los acertijos, rellena la semana, calcula la compra y te ayuda en el modo cocina.</p>
         <div class="fila"><button class="btn" data-accion="probar-ia">Probar la IA</button>
@@ -1132,6 +1287,42 @@ async function fusionarMiembros(dup, keep) {
   if (S.hogar.cocineraHabitual === dup.id) lote.update(doc(db, "hogares", S.hogarId), { cocineraHabitual: keep.id });
   await lote.commit();
 }
+// ---------- FAMILIAS NUEVAS (solo Rubén) ----------
+function panelFamilias() {
+  if (!S.invitaciones) cargarInvitaciones();
+  const lista = S.invitaciones || [];
+  return `<section class="tarjeta seccion pila zona-familias">
+    <h2 class="h2">Familias nuevas · solo Rubén</h2>
+    <p class="suave" style="margin:0">Crea un enlace para que otra familia tenga su propio KeKoMeMos. Quien lo abra entra con Google, crea su familia y la administra. Te llegará un aviso cuando la cree.</p>
+    <form class="fila" data-form="invitacion">
+      <label class="oculto-visual" for="inv-nota">Para quién</label>
+      <input id="inv-nota" name="nota" class="entrada-texto crece" placeholder="Para quién (ej. Familia Pérez)" maxlength="60" autocomplete="off">
+      <button class="btn btn-primario">Crear enlace</button>
+    </form>
+    ${lista.length ? `<ul class="lista">${lista.map((i) => `<li style="flex-wrap:wrap">
+      <span class="crece"><b>${esc(i.nota || "Sin nombre")}</b><br><small class="suave">${i.usada ? `✅ Creada: «${esc(i.familia || "")}» · ${esc(i.usadaEmail || "")}${i.usadaMs ? " · " + new Date(i.usadaMs).toLocaleDateString("es-ES") : ""}` : `⏳ Pendiente · creada el ${new Date(i.creadaMs).toLocaleDateString("es-ES")}`}</small></span>
+      ${i.usada ? "" : `<button class="btn" data-accion="compartir-invitacion" data-id="${i.id}" data-nota="${esc(i.nota || "")}">Compartir</button>
+      <button class="btn-x" data-accion="borrar-invitacion" data-id="${i.id}" aria-label="Anular invitación">×</button>`}
+    </li>`).join("")}</ul>` : `<p class="suave" style="margin:0">Aún no has creado invitaciones.</p>`}
+  </section>`;
+}
+async function cargarInvitaciones() {
+  S.invitaciones = [];
+  try {
+    const qs = await getDocs(query(collection(db, "invitaciones"), where("creadaPor", "==", S.user.uid)));
+    S.invitaciones = qs.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.creadaMs || 0) - (a.creadaMs || 0));
+    if (S.vista === "yo") render();
+  } catch (e) { console.error(e); }
+}
+const enlaceInvitacion = (id) => `${location.origin}/?invitacion=${id}`;
+async function compartirInvitacion(id, nota) {
+  const url = enlaceInvitacion(id);
+  const texto = `${nota ? nota + ": " : ""}te invito a KeKoMeMos, la app para organizar menús, recetas y la compra en familia. Abre este enlace, entra con tu cuenta de Google y crea tu familia: ${url}`;
+  if (navigator.share) { try { await navigator.share({ title: "Invitación a KeKoMeMos", text: texto }); return; } catch { /* cancelado */ } }
+  try { await navigator.clipboard.writeText(texto); notificar("Invitación copiada: pégala en WhatsApp o en un correo."); }
+  catch { prompt("Copia este enlace:", url); }
+}
+
 // ---------- REINICIOS ----------
 const REINICIOS = {
   puntos: { titulo: "Puntos y tareas", texto: "Pone a 0 los puntos de todos y borra el historial de tareas." },
@@ -1221,6 +1412,7 @@ function panelHogar() {
     <ul class="lista">${S.miembros.map((m) => `<li>
       ${avatar(m, 40)}
       <span class="crece">${esc(m.nombre)}${m.nacimiento ? ` <span class="suave">· ${edad(m.nacimiento)} años</span>` : ""}</span>
+      ${esJefe() ? `<button class="btn-x" data-accion="renombrar" data-id="${m.id}" aria-label="Cambiar el nombre de ${esc(m.nombre)}" title="Cambiar nombre">✏️</button>` : ""}
       <select data-input="rol" data-id="${m.id}" aria-label="Perfil de ${esc(m.nombre)}" ${m.id === h.admin ? "disabled" : ""} class="entrada-texto" style="width:auto">
         <option value="adulto" ${m.rol === "adulto" ? "selected" : ""}>Adulto</option>
         <option value="menor" ${m.rol === "menor" ? "selected" : ""}>Menor</option>
@@ -1240,9 +1432,44 @@ async function sumarPuntos(uid, n) {
 }
 async function registrarTarea(tareaId, uid) {
   const t = TAREAS.find((x) => x.id === tareaId);
-  await addDoc(col$("tareas"), { tarea: tareaId, uid, puntos: t.puntos, por: S.user.uid, fecha: hoy(), creadoMs: Date.now(), ts: serverTimestamp() });
+  const pendiente = miembro(uid)?.rol === "menor" && !esJefe();
+  await addDoc(col$("tareas"), { tarea: tareaId, uid, puntos: t.puntos, por: S.user.uid, quien: yoActivo().id, fecha: hoy(),
+    estado: pendiente ? "pendiente" : "ok", creadoMs: Date.now(), ts: serverTimestamp() });
+  if (pendiente) return notificar(`Apuntado. Los ${t.puntos} puntos de ${nombreDe(uid)} se suman cuando lo verifique un adulto.`);
   await sumarPuntos(uid, t.puntos);
   notificar(`+${t.puntos} para ${nombreDe(uid)}`);
+}
+async function verificarTarea(id, ok) {
+  const t = S.tareasPendientes.find((x) => x.id === id);
+  if (!t) return;
+  await updateDoc(ref$("tareas", id), { estado: ok ? "ok" : "rechazada", verificadoPor: yoActivo().id });
+  if (ok) await sumarPuntos(t.uid, t.puntos);
+}
+function modalVerificar() {
+  const lista = S.tareasPendientes;
+  if (!lista.length) return notificar("No hay tareas por verificar.");
+  abrirModal(`${cabeceraModal("Tareas por verificar")}
+    <p class="suave" style="margin:0">Los chicos dicen que han hecho esto. Los puntos solo se suman si lo confirmas.</p>
+    <ul class="lista verificar">${lista.map((t) => `<li>${avatar(miembro(t.uid), 40)}
+      <span class="crece"><b>${esc(nombreDe(t.uid))}</b> ${esc(TAREAS.find((x) => x.id === t.tarea)?.hecho || t.tarea)}<br><small class="suave">${esc(t.fecha === hoy() ? "hoy" : t.fecha.split("-").reverse().join("/"))} · +${t.puntos} pts</small></span>
+      <button class="btn btn-primario" data-accion="verificar" data-id="${t.id}" data-ok="1" aria-label="Confirmar">✓ Sí</button>
+      <button class="btn btn-peligro" data-accion="verificar" data-id="${t.id}" data-ok="0" aria-label="Rechazar">✗ No</button>
+    </li>`).join("")}</ul>`);
+}
+const MOTIVOS_RESTA = ["No ha quitado la mesa", "No ha puesto la mesa", "No ha vaciado el lavavajillas", "No ha llenado el lavavajillas", "No ha hecho la compra", "No ha sacado la basura", "Otro motivo"];
+function modalRestar() {
+  const menores = S.miembros.filter((m) => m.rol === "menor");
+  if (!menores.length) return notificar("No hay menores en la familia.");
+  abrirModal(`${cabeceraModal("Restar puntos")}
+    <form class="pila" data-form="restar">
+      <fieldset class="campo"><legend>¿A quién?</legend>
+        <div class="selector-cocinero">${menores.map((m, i) => `<label class="elegible"><input type="radio" name="uid" value="${m.id}" ${i === 0 ? "checked" : ""}>${avatar(m, 64)}<span>${esc(m.nombre)}</span></label>`).join("")}</div></fieldset>
+      <fieldset class="campo"><legend>¿Por qué?</legend>
+        <div class="chips">${MOTIVOS_RESTA.map((t, i) => `<label class="chip"><input type="radio" name="motivo" value="${esc(t)}" ${i === 0 ? "checked" : ""}> ${esc(t)}</label>`).join("")}</div></fieldset>
+      <fieldset class="campo"><legend>¿Cuántos puntos?</legend>
+        <div class="chips">${[2, 5, 10, 20].map((n, i) => `<label class="chip"><input type="radio" name="n" value="${n}" ${i === 1 ? "checked" : ""}> −${n}</label>`).join("")}</div></fieldset>
+      <button class="btn btn-peligro btn-grande">Restar puntos</button>
+    </form>`);
 }
 async function asignarMenu(huecoId, r) {
   const [fecha, tipo] = huecoId.split("_");
@@ -1462,6 +1689,46 @@ const ACCIONES = {
   "union-nuevo": () => { S.union.paso = "nuevo"; mostrarEntrada("unirse"); },
   "union-elegir": () => { S.union.paso = "elegir"; mostrarEntrada("unirse"); },
   "union-atras": () => { S.union = null; mostrarEntrada("unirse"); },
+  "copia-recetas": () => abrirModal(`${cabeceraModal("Copia de seguridad de recetas")}
+    <div class="pila">
+      <button class="btn btn-primario btn-grande" data-accion="exportar-recetas">⬇ Exportar las ${S.recetas.length} recetas (JSON)</button>
+      <p class="suave" style="margin:0">Se descarga un archivo con todas las recetas (nombre, tipo, ingredientes, pasos, enlace a la foto…). Guárdalo en tu ordenador o en Drive.</p>
+      <label class="btn btn-grande">⬆ Importar desde un archivo<input type="file" accept="application/json,.json" data-input="importar-recetas" hidden></label>
+      <p class="suave" style="margin:0">Las recetas que ya existan (mismo nombre) no se duplican: se saltan.</p>
+    </div>`),
+  "exportar-recetas": () => {
+    const campos = ["titulo", "categoria", "subcategoria", "tipos", "minutos", "raciones", "ingredientes", "pasos", "fuente", "foto", "fotoGenerada"];
+    const recetas = S.recetas.map((r) => Object.fromEntries(campos.filter((c) => r[c] !== undefined && r[c] !== null && r[c] !== "").map((c) => [c, r[c]])));
+    const datos = { app: "KeKoMeMos", version: 1, exportado: new Date().toISOString(), hogar: S.hogar?.nombre || "", recetas };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `kekomemos-recetas-${hoy()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    notificar(`${recetas.length} recetas exportadas`);
+  },
+  "compartir-invitacion": (d) => compartirInvitacion(d.id, d.nota),
+  "borrar-invitacion": async (d) => {
+    if (!confirmar("¿Anular esta invitación? El enlace dejará de funcionar.")) return;
+    await deleteDoc(doc(db, "invitaciones", d.id));
+    S.invitaciones = null; render();
+  },
+  "ver-pendientes": () => modalVerificar(),
+  verificar: async (d, el) => {
+    el.closest("li")?.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    await verificarTarea(d.id, d.ok === "1");
+    el.closest("li")?.remove();
+    if (!$("#modal .verificar li")) cerrarModal();
+  },
+  "restar-puntos": () => modalRestar(),
+  renombrar: (d) => {
+    const m = miembro(d.id);
+    abrirModal(`${cabeceraModal("Cambiar nombre")}
+      <form class="pila" data-form="renombrar" data-id="${m.id}">
+        <div class="fila">${avatar(m, 56)}<label class="campo crece">Nombre <input name="nombre" required maxlength="24" value="${esc(m.nombre)}"></label></div>
+        <button class="btn btn-primario btn-grande">Guardar</button>
+      </form>`);
+  },
   reiniciar: (d) => {
     const r = REINICIOS[d.que];
     abrirModal(`${cabeceraModal("Reiniciar: " + r.titulo)}
@@ -1816,12 +2083,38 @@ const ACCIONES = {
     const i = Number(d.i);
     if (String(st.reto.opciones[i]) === String(st.reto.correcta)) return retoAcertado(persona);
     st.fallos.push(i);
-    st.bloqueoHasta = Date.now() + SEGUNDOS_BOMBA * 1000;
-    guardarReto();
-    const caja = $("#modal .modal");
-    caja?.classList.remove("temblor"); void caja?.offsetWidth; caja?.classList.add("temblor");
-    navigator.vibrate?.([120, 60, 120]);
-    pintarReto(persona);
+    falloReto(st, persona);
+  },
+  pareja: (d) => {
+    const st = S.retoInline;
+    if (!st?.reto || st.bloqueoHasta > Date.now()) return;
+    const persona = miembro(st.personaId);
+    if (!st.sel || st.sel.lado === d.lado) { st.sel = { lado: d.lado, v: d.v }; return pintarReto(persona); }
+    const a = d.lado === "a" ? d.v : st.sel.v, b = d.lado === "b" ? d.v : st.sel.v;
+    st.sel = null;
+    if (st.reto.pares.some((p) => p.a === a && p.b === b)) {
+      st.progreso.hechas = [...(st.progreso.hechas || []), a];
+      navigator.vibrate?.(30);
+      if (st.progreso.hechas.length === st.reto.pares.length) return retoAcertado(persona);
+      guardarReto();
+      return pintarReto(persona);
+    }
+    falloReto(st, persona);
+  },
+  orden: (d) => {
+    const st = S.retoInline;
+    if (!st?.reto || st.bloqueoHasta > Date.now()) return;
+    const persona = miembro(st.personaId);
+    const i = Number(d.i), sec = st.progreso.secuencia || [];
+    if (st.reto.mezclados[i] === st.reto.elementos[sec.length]) {
+      st.progreso.secuencia = [...sec, i];
+      navigator.vibrate?.(30);
+      if (st.progreso.secuencia.length === st.reto.elementos.length) return retoAcertado(persona);
+      guardarReto();
+      return pintarReto(persona);
+    }
+    st.progreso.secuencia = [];
+    falloReto(st, persona);
   },
 
   "fotos-pendientes": async () => {
@@ -2102,6 +2395,7 @@ document.addEventListener("submit", (e) => {
   if (f) Promise.resolve(f(new FormData(form), form, e.submitter)).catch((err) => { console.error(err); notificar("Algo ha fallado: " + (err.code || err.message)); });
 });
 document.addEventListener("input", (e) => {
+  if (e.target.dataset.input === "fecha-texto") return sincronizarFecha(e.target.closest(".campo-fecha"), "texto");
   if (e.target.dataset.input === "buscar") {
     S.busqueda = e.target.value;
     const pos = e.target.selectionStart;
@@ -2111,7 +2405,43 @@ document.addEventListener("input", (e) => {
 });
 document.addEventListener("change", async (e) => {
   const t = e.target, tipo = t.dataset.input;
+  if (tipo === "fecha-sel") return sincronizarFecha(t.closest(".campo-fecha"), "sel");
   try {
+    if (tipo === "importar-recetas" && t.files[0]) {
+      let datos;
+      try { datos = JSON.parse(await t.files[0].text()); } catch { return notificar("Ese archivo no es una copia de recetas válida."); }
+      const lista = Array.isArray(datos) ? datos : datos.recetas;
+      if (!Array.isArray(lista)) return notificar("El archivo no contiene recetas.");
+      const existentes = new Set(S.recetas.map((r) => normal(r.titulo)));
+      const nuevas = [];
+      let repetidas = 0, invalidas = 0;
+      for (const r of lista) {
+        const titulo = String(r?.titulo || "").trim();
+        if (!titulo) { invalidas++; continue; }
+        if (existentes.has(normal(titulo))) { repetidas++; continue; }
+        existentes.add(normal(titulo));
+        nuevas.push({
+          titulo, categoria: CATEGORIAS[r.categoria] ? r.categoria : "favoritos", subcategoria: String(r.subcategoria || ""),
+          tipos: Array.isArray(r.tipos) ? r.tipos.filter((x) => TIPOS_PLATO.some(([id]) => id === x)) : [],
+          minutos: Number(r.minutos) || null, raciones: Number(r.raciones) || null,
+          ingredientes: Array.isArray(r.ingredientes) ? r.ingredientes.map((i) => (typeof i === "string" ? leerIngredientes(i)[0] : { nombre: String(i?.nombre || ""), cantidad: Number(i?.cantidad) || null, unidad: String(i?.unidad || "") })).filter((i) => i?.nombre) : [],
+          pasos: Array.isArray(r.pasos) ? r.pasos.map(String).filter(Boolean) : [],
+          fuente: /^https?:\/\//.test(r.fuente || "") ? r.fuente : "",
+          foto: /^https:\/\//.test(r.foto || "") ? r.foto : null, fotoGenerada: !!r.fotoGenerada,
+          importada: serverTimestamp()
+        });
+      }
+      t.value = "";
+      if (!nuevas.length) return notificar(`No hay recetas nuevas que importar (${repetidas} ya existían).`);
+      if (!confirmar(`Se van a importar ${nuevas.length} recetas nuevas.${repetidas ? ` ${repetidas} ya existían y se saltan.` : ""}${invalidas ? ` ${invalidas} no eran válidas.` : ""} ¿Continuar?`)) return;
+      for (let i = 0; i < nuevas.length; i += 400) {
+        const lote = writeBatch(db);
+        nuevas.slice(i, i + 400).forEach((r) => lote.set(doc(col$("recetas")), r));
+        await lote.commit();
+      }
+      cerrarModal();
+      notificar(`${nuevas.length} recetas importadas${repetidas ? ` · ${repetidas} repetidas saltadas` : ""}`);
+    }
     if (tipo === "foto-receta" && t.files[0]) {
       const blob = await comprimir(t.files[0]);
       S.editorFoto = { blob, url: URL.createObjectURL(blob), generada: false };
