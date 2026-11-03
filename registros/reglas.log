@@ -1,0 +1,76 @@
+✔ un extraño no puede leer el hogar ni sus recetas (831.523955ms)
+✔ sin sesión no se puede consultar un código (145.045124ms)
+✔ unirse con el código correcto funciona (165.881463ms)
+[2026-11-03T21:02:56.574Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385bff error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L58:26 for 'create' @ L58, evaluation error at L62:26 for 'update' @ L62, false for 'create' @ L58
+✔ unirse con un código falso falla (109.905057ms)
+[2026-11-03T21:02:56.670Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c01 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property email is undefined on object. for 'create' @ L44, evaluation error at L50:24 for 'update' @ L50, Property email is undefined on object. for 'create' @ L44
+[2026-11-03T21:02:56.745Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c03 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property email is undefined on object. for 'create' @ L14, false for 'update' @ L16, Property email is undefined on object. for 'create' @ L14
+[2026-11-03T21:02:56.985Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c05 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property email is undefined on object. for 'create' @ L44, evaluation error at L50:24 for 'update' @ L50, evaluation error at L16:24 for 'update' @ L16, Property email is undefined on object. for 'create' @ L44
+✔ crear una familia nueva necesita una invitación de Rubén (y solo sirve una vez) (410.722918ms)
+[2026-11-03T21:02:57.098Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c07 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L92:26 for 'create' @ L92, false for 'create' @ L92
+[2026-11-03T21:02:57.222Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c0a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L95:26 for 'update' @ L95, false for 'update' @ L95
+[2026-11-03T21:02:57.263Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c0b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L95:26 for 'update' @ L95, false for 'update' @ L95
+[2026-11-03T21:02:57.346Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c0d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L62:26 for 'update' @ L62, false for 'update' @ L62
+[2026-11-03T21:02:57.391Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c0e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L62:26 for 'update' @ L62, false for 'update' @ L62
+[2026-11-03T21:02:57.501Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c10 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L103
+[2026-11-03T21:02:57.570Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c11 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L103:26 for 'create' @ L103, false for 'create' @ L103
+[2026-11-03T21:02:57.647Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c13 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L105:34 for 'update' @ L105, false for 'update' @ L105
+✔ misiones: el menor no se da puntos ni estrellas, solo pide; el adulto verifica y entrega (760.116861ms)
+[2026-11-03T21:02:57.887Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c18 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L95:26 for 'update' @ L95, false for 'update' @ L95
+✔ los menores no pueden verificar sus tareas; los adultos sí (177.530588ms)
+[2026-11-03T21:02:58.001Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c1b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L31:24 for 'create' @ L31
+✔ no se puede secuestrar un código de otro hogar (77.39242ms)
+[2026-11-03T21:02:58.112Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c1e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L72:25 for 'update' @ L72, false for 'update' @ L72
+[2026-11-03T21:02:58.128Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c1f error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L72:25 for 'delete' @ L72, false for 'delete' @ L72
+✔ un menor lee recetas pero no las edita ni borra (126.632504ms)
+[2026-11-03T21:02:58.207Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c21 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L76:25 for 'create' @ L76, evaluation error at L76:25 for 'update' @ L76, false for 'create' @ L76
+✔ un menor no puede planificar menús (79.311138ms)
+[2026-11-03T21:02:58.321Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c23 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L81:26 for 'delete' @ L81, false for 'delete' @ L81
+✔ un menor añade y marca la compra pero no la borra (113.911122ms)
+[2026-11-03T21:02:58.426Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c25 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L62:26 for 'update' @ L62, false for 'update' @ L62
+✔ un menor no puede hacerse adulto (141.774158ms)
+✔ un adulto planifica, edita recetas y cambia quién cocina (97.159218ms)
+[2026-11-03T21:02:58.640Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c2a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L50:24 for 'update' @ L50, false for 'update' @ L50
+[2026-11-03T21:02:58.666Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c2b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L50:24 for 'update' @ L50, Null value error. for 'update' @ L50
+[2026-11-03T21:02:58.690Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c2c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L50:24 for 'update' @ L50, false for 'update' @ L50
+✔ el titular solo pasa a otro adulto y el código no cambia (129.57014ms)
+[2026-11-03T21:02:58.770Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c2e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L85, evaluation error at L86:26 for 'update' @ L86, false for 'create' @ L85
+✔ los avisos se firman con el propio usuario (80.303564ms)
+✔ cualquier miembro registra tareas de casa (113.914389ms)
+[2026-11-03T21:02:59.053Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c34 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L66:26 for 'delete' @ L66, false for 'delete' @ L66
+[2026-11-03T21:02:59.082Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c35 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L66:26 for 'delete' @ L66, false for 'delete' @ L66
+✔ un adulto puede borrar un perfil duplicado, pero nadie al administrador (197.724059ms)
+✔ fusionar al titular: pasa a otro adulto y se borra el duplicado en el mismo paso (120.499632ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4162.650087

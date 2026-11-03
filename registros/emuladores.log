@@ -1,0 +1,298 @@
+[33m[1m⚠  emulators:[22m[39m You are not currently authenticated so some features may not work correctly. Please run [1mfirebase login[22m to authenticate the CLI.
+[36m[1mi  emulators:[22m[39m Starting emulators: auth, functions, firestore, hosting, storage
+[33m[1m⚠  functions:[22m[39m The following emulators are not running, calls to these services from the Functions emulator will affect production: [1mapphosting, database, pubsub, dataconnect[22m
+[33m[1m⚠  functions:[22m[39m Unable to fetch project Admin SDK configuration, Admin SDK behavior in Cloud Functions emulator may be incorrect.
+[33m[1m⚠ [22m[39m It appears you are running in a CI environment. You can avoid downloading the Firestore Emulator repeatedly by caching the /home/runner/.cache/firebase/emulators directory.
+[36m[1mi  firestore:[22m[39m downloading cloud-firestore-emulator-v1.22.0.jar...
+
+[36m[1mi  firestore:[22m[39m Firestore Emulator logging to [1mfirestore-debug.log[22m
+[32m[1m✔  firestore:[22m[39m Firestore Emulator was started in standard edition.
+[32m[1m✔  firestore:[22m[39m Firestore Emulator UI websocket is running on 9150.
+[33m[1m⚠ [22m[39m It appears you are running in a CI environment. You can avoid downloading the Storage Emulator repeatedly by caching the /home/runner/.cache/firebase/emulators directory.
+[36m[1mi  storage:[22m[39m downloading cloud-storage-rules-runtime-v1.1.3.jar...
+
+[33m[1m⚠  hosting:[22m[39m Could not fetch web app configuration and there is no cached configuration on this machine. Check your internet connection and make sure you are authenticated. To continue, you must call firebase.initializeApp({...}) in your code before using Firebase.
+[36m[1mi  hosting[keko-memos]:[22m[39m Serving hosting files from: [1mpublic[22m
+[32m[1m✔  hosting[keko-memos]:[22m[39m Local server: [4m[1mhttp://127.0.0.1:5000[22m[24m
+[36m[1mi  functions:[22m[39m Watching "/home/runner/work/keko-memos/keko-memos/funciones" for Cloud Functions...
+[32m[1m✔  functions:[22m[39m Using node@22 from host.
+Serving at port 8909
+
+[32m[1m✔  functions:[22m[39m Loaded functions definitions from source: enviarAviso, leerWebs, guardarFotoWeb, ia, unirse, familiaCreada.
+[32m[1m✔  functions[europe-west1-enviarAviso]:[22m[39m [1mfirestore[22m function initialized.
+[32m[1m✔  functions[europe-west1-leerWebs]:[22m[39m [1mhttp[22m function initialized (http://127.0.0.1:5001/keko-memos/europe-west1/leerWebs).
+[32m[1m✔  functions[europe-west1-guardarFotoWeb]:[22m[39m [1mhttp[22m function initialized (http://127.0.0.1:5001/keko-memos/europe-west1/guardarFotoWeb).
+[32m[1m✔  functions[europe-west1-ia]:[22m[39m [1mhttp[22m function initialized (http://127.0.0.1:5001/keko-memos/europe-west1/ia).
+[32m[1m✔  functions[europe-west1-unirse]:[22m[39m [1mhttp[22m function initialized (http://127.0.0.1:5001/keko-memos/europe-west1/unirse).
+[32m[1m✔  functions[europe-west1-familiaCreada]:[22m[39m [1mfirestore[22m function initialized.
+[36m[1mi [22m[39m Running script: [1mnode --test --test-reporter=spec pruebas/reglas.test.mjs 2>&1 | tee informe/reglas.log && node pruebas/sembrar.mjs && node pruebas/recorrido.mjs[22m
+✔ un extraño no puede leer el hogar ni sus recetas (831.523955ms)
+✔ sin sesión no se puede consultar un código (145.045124ms)
+✔ unirse con el código correcto funciona (165.881463ms)
+[2026-11-03T21:02:56.574Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385bff error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L58:26 for 'create' @ L58, evaluation error at L62:26 for 'update' @ L62, false for 'create' @ L58
+✔ unirse con un código falso falla (109.905057ms)
+[2026-11-03T21:02:56.670Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c01 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property email is undefined on object. for 'create' @ L44, evaluation error at L50:24 for 'update' @ L50, Property email is undefined on object. for 'create' @ L44
+[2026-11-03T21:02:56.745Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c03 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property email is undefined on object. for 'create' @ L14, false for 'update' @ L16, Property email is undefined on object. for 'create' @ L14
+[2026-11-03T21:02:56.985Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c05 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+Property email is undefined on object. for 'create' @ L44, evaluation error at L50:24 for 'update' @ L50, evaluation error at L16:24 for 'update' @ L16, Property email is undefined on object. for 'create' @ L44
+✔ crear una familia nueva necesita una invitación de Rubén (y solo sirve una vez) (410.722918ms)
+[2026-11-03T21:02:57.098Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c07 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L92:26 for 'create' @ L92, false for 'create' @ L92
+[2026-11-03T21:02:57.222Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c0a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L95:26 for 'update' @ L95, false for 'update' @ L95
+[2026-11-03T21:02:57.263Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c0b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L95:26 for 'update' @ L95, false for 'update' @ L95
+[2026-11-03T21:02:57.346Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c0d error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L62:26 for 'update' @ L62, false for 'update' @ L62
+[2026-11-03T21:02:57.391Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c0e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L62:26 for 'update' @ L62, false for 'update' @ L62
+[2026-11-03T21:02:57.501Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c10 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L103
+[2026-11-03T21:02:57.570Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c11 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L103:26 for 'create' @ L103, false for 'create' @ L103
+[2026-11-03T21:02:57.647Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c13 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L105:34 for 'update' @ L105, false for 'update' @ L105
+✔ misiones: el menor no se da puntos ni estrellas, solo pide; el adulto verifica y entrega (760.116861ms)
+[2026-11-03T21:02:57.887Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c18 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L95:26 for 'update' @ L95, false for 'update' @ L95
+✔ los menores no pueden verificar sus tareas; los adultos sí (177.530588ms)
+[2026-11-03T21:02:58.001Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c1b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L31:24 for 'create' @ L31
+✔ no se puede secuestrar un código de otro hogar (77.39242ms)
+[2026-11-03T21:02:58.112Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c1e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L72:25 for 'update' @ L72, false for 'update' @ L72
+[2026-11-03T21:02:58.128Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c1f error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L72:25 for 'delete' @ L72, false for 'delete' @ L72
+✔ un menor lee recetas pero no las edita ni borra (126.632504ms)
+[2026-11-03T21:02:58.207Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c21 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L76:25 for 'create' @ L76, evaluation error at L76:25 for 'update' @ L76, false for 'create' @ L76
+✔ un menor no puede planificar menús (79.311138ms)
+[2026-11-03T21:02:58.321Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c23 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L81:26 for 'delete' @ L81, false for 'delete' @ L81
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-familiaCreada"
+✔ un menor añade y marca la compra pero no la borra (113.911122ms)
+[2026-11-03T21:02:58.426Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c25 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L62:26 for 'update' @ L62, false for 'update' @ L62
+✔ un menor no puede hacerse adulto (141.774158ms)
+✔ un adulto planifica, edita recetas y cambia quién cocina (97.159218ms)
+[36m[1mi  functions:[22m[39m Finished "europe-west1-familiaCreada" in 267.598814ms
+[2026-11-03T21:02:58.640Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c2a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L50:24 for 'update' @ L50, false for 'update' @ L50
+[2026-11-03T21:02:58.666Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c2b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L50:24 for 'update' @ L50, Null value error. for 'update' @ L50
+[2026-11-03T21:02:58.690Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c2c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L50:24 for 'update' @ L50, false for 'update' @ L50
+✔ el titular solo pasa a otro adulto y el código no cambia (129.57014ms)
+[2026-11-03T21:02:58.770Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c2e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L85, evaluation error at L86:26 for 'update' @ L86, false for 'create' @ L85
+✔ los avisos se firman con el propio usuario (80.303564ms)
+✔ cualquier miembro registra tareas de casa (113.914389ms)
+[2026-11-03T21:02:59.053Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c34 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L66:26 for 'delete' @ L66, false for 'delete' @ L66
+[2026-11-03T21:02:59.082Z]  @firebase/firestore: Firestore (13.0.0): GrpcConnection RPC 'Write' stream 0x82385c35 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L66:26 for 'delete' @ L66, false for 'delete' @ L66
+✔ un adulto puede borrar un perfil duplicado, pero nadie al administrador (197.724059ms)
+✔ fusionar al titular: pasa a otro adulto y se borra el duplicado en el mismo paso (120.499632ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4162.650087
+(node:3136) MetadataLookupWarning: received unexpected error = All promises were rejected code = 404, ENOTFOUND
+(Use `node --trace-warnings ...` to show where the warning was created)
+Datos de ejemplo cargados
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-enviarAviso"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-enviarAviso" in 282.615341ms
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:00 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:00 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:00 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:00 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+OK  La pantalla de entrada carga
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 5.719508ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 222.739812ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 38.563807ms
+OK  Entrar con el código familiar (anónimo) y unirse al hogar
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:03 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:03 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:03 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:03 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+OK  Modo tablet activado
+OK  Hoy: muestra los platos del día y la cocinera habitual
+OK  Tareas: marcar que Lucía ha puesto la mesa suma puntos
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-enviarAviso"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-enviarAviso" in 39.188118ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-enviarAviso"
+OK  Aviso rápido «Poned la mesa» se envía
+[36m[1mi  functions:[22m[39m Finished "europe-west1-enviarAviso" in 21.814522ms
+OK  Cambiar quién cocina solo para hoy
+OK  Tablet: un peque pregunta a KeKoMeMos y supera el reto
+OK  Recetas: el asistente «Añadir receta» ofrece internet, IA y a mano
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-ia"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-ia" in 4.454527ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-ia"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-ia" in 11.528116ms
+OK  Hoy: botón «No sé qué cocinar · ¡Dame ideas!»
+OK  Semana: se ve la planificación
+OK  Semana: intercambiar dos días
+OK  Menús: rellenar huecos sin repetir plato en 4 días
+OK  Menús: vista mensual
+OK  Menús: crear una receta nueva directamente en un día vacío
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-ia"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-ia" in 3.248112ms
+OK  Recetas: lista, filtro y detalle
+OK  Recetas: crear una receta nueva
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-ia"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-ia" in 2.118405ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-ia"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-ia" in 2.183854ms
+OK  Modo cocina: abre y avanza de paso
+OK  Compra: añadir, marcar y guardar en casa
+OK  Perfil: QR, código y los 5 temas
+OK  Rubén cambia el nombre de un miembro
+OK  Recetas: exportar a JSON e importar sin duplicar
+OK  Rubén: panel «Reiniciar» (prueba con los avisos)
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:21 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:21 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:21 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:21 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 2.665593ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 23.613889ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 33.393402ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-ia"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-ia" in 1.878988ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-ia"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-ia" in 8.276567ms
+OK  Móvil: un menor se une con el código
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:25 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:25 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:25 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:03:25 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+OK  Móvil menor: el menú está oculto hasta resolver el reto
+OK  Móvil menor: puede añadir a la compra pero no borrar
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-enviarAviso"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-enviarAviso" in 23.850213ms
+OK  Un menor marca una tarea y queda pendiente hasta que Rubén la verifica
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-enviarAviso"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-enviarAviso" in 22.504881ms
+OK  Misiones: Rubén ve el panel de adultos, añade un premio y encarga una misión
+OK  Misiones: Hugo cumple su encargo, Rubén le da «¡Perfecto!» y se celebra en su móvil
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-enviarAviso"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-enviarAviso" in 17.935005ms
+OK  Tienda: Hugo canjea un premio y Rubén se lo entrega
+OK  Rubén resta puntos a un menor
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-enviarAviso"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-enviarAviso" in 19.9301ms
+OK  La tablet recibe el aviso que envía el móvil
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:13 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:13 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:13 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:13 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 1.974356ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 20.69646ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 26.000592ms
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:14 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:14 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:14 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:14 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 1.910766ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 17.674826ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 23.14535ms
+OK  Sin duplicados: Hugo entra desde otro móvil y elige su perfil
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:17 +0000] "GET / HTTP/1.1" 200 - "-" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:17 +0000] "GET /estilos.css HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:17 +0000] "GET /app.js HTTP/1.1" 200 - "http://127.0.0.1:5000/" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  hosting:[22m[39m 127.0.0.1 - - [03/Nov/2026:21:04:17 +0000] "GET /asistente.js HTTP/1.1" 200 - "http://127.0.0.1:5000/app.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 1.427665ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 18.96456ms
+[36m[1mi  functions:[22m[39m Beginning execution of "europe-west1-unirse"
+[90m> [39m {"verifications":{"app":"MISSING","auth":"VALID"},"logging.googleapis.com/labels":{"firebase-log-type":"callable-request-verification"},"severity":"DEBUG","message":"Callable request verification passed"}
+[36m[1mi  functions:[22m[39m Finished "europe-west1-unirse" in 43.759395ms
+OK  Móvil adulto: vistas principales
+## Recorrido con emuladores (http://127.0.0.1:5000)
+
+✅ La pantalla de entrada carga
+✅ Entrar con el código familiar (anónimo) y unirse al hogar
+✅ Modo tablet activado
+✅ Hoy: muestra los platos del día y la cocinera habitual
+✅ Tareas: marcar que Lucía ha puesto la mesa suma puntos
+✅ Aviso rápido «Poned la mesa» se envía
+✅ Cambiar quién cocina solo para hoy
+✅ Tablet: un peque pregunta a KeKoMeMos y supera el reto
+✅ Recetas: el asistente «Añadir receta» ofrece internet, IA y a mano
+✅ Hoy: botón «No sé qué cocinar · ¡Dame ideas!»
+✅ Semana: se ve la planificación
+✅ Semana: intercambiar dos días
+✅ Menús: rellenar huecos sin repetir plato en 4 días
+✅ Menús: vista mensual
+✅ Menús: crear una receta nueva directamente en un día vacío
+✅ Recetas: lista, filtro y detalle
+✅ Recetas: crear una receta nueva
+✅ Modo cocina: abre y avanza de paso
+✅ Compra: añadir, marcar y guardar en casa
+✅ Perfil: QR, código y los 5 temas
+✅ Rubén cambia el nombre de un miembro
+✅ Recetas: exportar a JSON e importar sin duplicar
+✅ Rubén: panel «Reiniciar» (prueba con los avisos)
+✅ Móvil: un menor se une con el código
+✅ Móvil menor: el menú está oculto hasta resolver el reto
+✅ Móvil menor: puede añadir a la compra pero no borrar
+✅ Un menor marca una tarea y queda pendiente hasta que Rubén la verifica
+✅ Misiones: Rubén ve el panel de adultos, añade un premio y encarga una misión
+✅ Misiones: Hugo cumple su encargo, Rubén le da «¡Perfecto!» y se celebra en su móvil
+✅ Tienda: Hugo canjea un premio y Rubén se lo entrega
+✅ Rubén resta puntos a un menor
+✅ La tablet recibe el aviso que envía el móvil
+✅ Sin duplicados: Hugo entra desde otro móvil y elige su perfil
+✅ Móvil adulto: vistas principales
+
+**34 de 34 pasos correctos.**
+
+### Errores de la página
+- [tablet] consola: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+- [tablet] consola: FirebaseError: Unauthenticated [401]
+- [móvil menor] consola: Failed to load resource: the server responded with a status of 401 (Unauthorized)
+
+[32m[1m✔ [22m[39m Script exited successfully (code 0)
+[36m[1mi  emulators:[22m[39m Shutting down emulators.
+[36m[1mi  functions:[22m[39m Stopping Functions Emulator
+[36m[1mi  hosting:[22m[39m Stopping Hosting Emulator
+[36m[1mi  firestore:[22m[39m Stopping Firestore Emulator
+[36m[1mi  auth:[22m[39m Stopping Authentication Emulator
+[36m[1mi  storage:[22m[39m Stopping Storage Emulator
+[36m[1mi  eventarc:[22m[39m Stopping Eventarc Emulator
+[36m[1mi  tasks:[22m[39m Stopping Cloud Tasks Emulator
+[36m[1mi  hub:[22m[39m Stopping emulator hub
+[36m[1mi  logging:[22m[39m Stopping Logging Emulator
